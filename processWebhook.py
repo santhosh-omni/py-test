@@ -92,7 +92,7 @@ def user_engagement():
             dfTempEngagement = pd.concat([dfTempEngagement, res])
         result = dfTempEngagement
     if result is None:
-        return null
+        return None
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
