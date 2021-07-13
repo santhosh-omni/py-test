@@ -141,7 +141,7 @@ def user_engagement():
             result = df
         for e in request_data['activityLevel']:
             res = result[(result['activity_level'] == e)]
-            dfTempActivity = pd.concat([dfTempEngagement, res])
+            dfTempActivity = pd.concat([dfTempActivity, res])
         result = dfTempActivity
 
     if result is None:
