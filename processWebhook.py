@@ -62,6 +62,49 @@ def hello_world():
     # print(df.head())
     return 'Hello World.!'
 
+@app.route('/', methods=['POST'])
+def hello_world_post():
+    # df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result.csv')
+    df = pd.read_csv('/Users/santhosh-omni/Desktop/query_result.csv')
+    # Updating the progress to 100 id status is completed
+    df.loc[df['status'] == 'COMPLETED', ['progress']] = 100
+    #Group all the user id with speciality id and find the average
+    # grouped_df = df.groupby("status")
+    # mean_df = grouped_df.mean()
+    # print("^^^^^^^^^^^^^^^^^")
+    # print(mean_df.head())
+    # print("^^^^^^^^^^^^^^^^^")
+    grouped_multiple = df.groupby(['User ID', 'speciality_id'])
+    # mean_df = grouped_multiple.mean('progress')
+    # df['Data4'] = grouped_multiple.mean('progress')
+    # df['Data4'] = df['progress'].groupby(df['User ID', 'speciality_id']).transform('sum')
+    # df.map(df.groupby('User ID','speciality_id')['progress'].sum())
+
+    df['progress_mean'] = df.groupby(['User ID','speciality_id']).progress.transform('mean')
+    df = df.drop_duplicates(['User ID','speciality_id'])
+
+    df['mean'] = (df.groupby(['speciality_id'])['progress_mean']
+                  .transform('mean'))
+
+    df.loc[(df['progress_mean'] > (df['mean'])*0.01),['engagement_level']] = 'VERY_HIGH'
+    df.loc[(((df['progress_mean']) * 10) > (df['mean'])) & ((df['progress_mean']) <= ((df['mean']) * 0.01)), ['engagement_level']] = 'HIGH'
+    df.loc[(((df['progress_mean']) * 40) > (df['mean'])) & ((df['mean']) >= ((df['progress_mean']) * 10)), ['engagement_level']] = 'MEDIUM'
+    df.loc[(((df['progress_mean']) * 100) > 0) & ((df['mean']) >= ((df['progress_mean']) * 40)), ['engagement_level']] = 'LOW'
+    df.loc[(df['progress_mean']) <= 0, ['engagement_level']] = 'NEVER'
+    print("^^^^^^^^^^^^^^^^^")
+    print(df.head())
+    print("^^^^^^^^^^^^^^^^^")
+    df.to_csv('/Users/santhosh-omni/Desktop/query_result_d.csv')
+    # result = df[(df['engagement_level'] == ['LOW', 'MEDIUM'])]
+    # print(a.head())
+    # b = df[(df['engagement_level'] == 'LOW')]
+    # print(b.head())
+    # result = pd.concat([a, b])
+    # print(df)
+    # return result.to_csv()
+    # print(df.head())
+    return "Done"
+
 
 @app.route('/user-engagement', methods=['POST'])
 # @cross_origin()
