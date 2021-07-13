@@ -116,7 +116,7 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result_d.csv')
+    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result_bar.csv')
     if 'specialityId' in request_data:
         dfTempSpeciality = None
         if result is None:
@@ -134,11 +134,21 @@ def user_engagement():
             res = result[(result['engagement_level'] == e)]
             dfTempEngagement = pd.concat([dfTempEngagement, res])
         result = dfTempEngagement
+
+    if 'activityLevel' in request_data:
+        dfTempActivity = None
+        if result is None:
+            result = df
+        for e in request_data['activityLevel']:
+            res = result[(result['activity_level'] == e)]
+            dfTempActivity = pd.concat([dfTempEngagement, res])
+        result = dfTempActivity
+
     if result is None:
         return None
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    result = result.drop(['status', 'speciality_id', 'id', 'progress_mean', 'progress', 'mean', 'access_status'], axis = 1)
+    result = result.drop(['status', 'speciality_id', 'id', 'progress_mean', 'progress', 'mean', 'access_status', 'visited_count','last_visited_at'], axis = 1)
     return result.to_csv(index=False)
 
