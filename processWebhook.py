@@ -73,13 +73,13 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result.csv')
+    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result_d.csv')
     if 'specialityId' in request_data:
         dfTempSpeciality = None
         if result is None:
             result = df
         for s in request_data['specialityId']:
-            res = result[(result['s_id'] == int(s))]
+            res = result[(result['speciality_id'] == int(s))]
             dfTempSpeciality = pd.concat([dfTempSpeciality, res])
         result = dfTempSpeciality
 
@@ -96,6 +96,6 @@ def user_engagement():
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    result = result.drop(['s_id','mean','percentage','total_watched','user_watched'], axis = 1)
+    result = result.drop(['status', 'speciality_id', 'id', 'progress_mean', 'progress', 'mean', 'access_status'], axis = 1)
     return result.to_csv(index=False)
 
