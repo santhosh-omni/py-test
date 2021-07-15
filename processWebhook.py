@@ -116,7 +116,7 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result_bar.csv')
+    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result_r.csv')
     if 'specialityId' in request_data:
         dfTempSpeciality = None
         if result is None:
