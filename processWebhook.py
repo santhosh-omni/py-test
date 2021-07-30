@@ -149,6 +149,7 @@ def user_engagement():
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean', 'access_status'], axis = 1)
+    result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean'], axis = 1)
+    result = result[result['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Registration Date', 'isEmailVerified', 'isDND','engagement_level']]
     return result.to_csv(index=False)
 
