@@ -5,6 +5,10 @@ import pandas as pd
 # import seaborn as sns
 from flask import Flask, request
 from flask_cors import CORS
+from sqlalchemy import create_engine
+import pymysql
+import io
+import numpy
 import json
 
 # %matplotlib inline
@@ -15,94 +19,228 @@ CORS(app)
 # password = os.envirn.get('backend1234')
 
 
-@app.route('/')
-def hello_world():
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result.csv')
-    # df.loc[df['s_id'] == 2, ['total_watched']] = 3315
-    # df.loc[df['s_id'] == 5, ['total_watched']] = 1493
-    # df.loc[df['s_id'] == 6, ['total_watched']] = 4217
-    # df.loc[df['s_id'] == 7, ['total_watched']] = 1993
-    # df.loc[df['s_id'] == 11, ['total_watched']] = 2475
-    # df.loc[df['s_id'] == 12, ['total_watched']] = 436
-    # df.loc[df['s_id'] == 13, ['total_watched']] = 99
-    # df.loc[df['s_id'] == 14, ['total_watched']] = 60
-    # df.loc[df['s_id'] == 16, ['total_watched']] = 480
-    # df.loc[df['s_id'] == 17, ['total_watched']] = 1
-    # df.loc[df['s_id'] == 18, ['total_watched']] = 588
-    # df.loc[df['s_id'] == 19, ['total_watched']] = 1209
-    # df.loc[df['s_id'] == 20, ['total_watched']] = 62
-    # df.loc[df['s_id'] == 23, ['total_watched']] = 1053
-    # df.loc[df['s_id'] == 24, ['total_watched']] = 934
-    # df.loc[df['s_id'] == 25, ['total_watched']] = 1455
-    # df.loc[df['s_id'] == 26, ['total_watched']] = 1374
-    # df.loc[df['s_id'] == 28, ['total_watched']] = 398
-    # df.loc[df['s_id'] == 30, ['total_watched']] = 168
-    # df.loc[df['s_id'] == 31, ['total_watched']] = 388
-    # df.loc[df['s_id'] == 32, ['total_watched']] = 630
-    # df.loc[df['s_id'] == 34, ['total_watched']] = 174
-    # df.loc[df['s_id'] == 35, ['total_watched']] = 286
-    # df.loc[df['s_id'] == 46, ['total_watched']] = 239
-    # df['percentage'] = ((df['user_watched'])*100)/df['total_watched']
-    # df['mean'] = (df.groupby(['s_id'])['percentage']
-    #               .transform('mean'))
-    # df.loc[(df['percentage'] > (df['mean'])*0.01),['engagement_level']] = 'VERY_HIGH'
-    # df.loc[(((df['percentage']) * 10) > (df['mean'])) & ((df['percentage']) <= ((df['mean']) * 0.01)), ['engagement_level']] = 'HIGH'
-    # df.loc[(((df['percentage']) * 40) > (df['mean'])) & ((df['mean']) >= ((df['percentage']) * 10)), ['engagement_level']] = 'MEDIUM'
-    # df.loc[(((df['percentage']) * 100) > 0) & ((df['mean']) >= ((df['percentage']) * 40)), ['engagement_level']] = 'LOW'
-    # df.loc[(df['percentage']) <= 0, ['engagement_level']] = 'NEVER'
+@app.route('/generate/report', methods=['POST'])
+def generate_report():
+    # Sql Connection
+    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    dbConnection = sqlEngine.connect()
+    queryForCount = 'Select Count(u.id) as count From t_user u '
+    dfCount = pd.read_sql(queryForCount, dbConnection);
+    totalCount = dfCount["count"].loc[0]
+    print (totalCount)
+    startRange = 0
+    endRange = 10000
+    df = None
+    print('***************Started User Tracking For User******************')
+    while startRange<totalCount:
+        query = 'Select u.id as "User ID", ' \
+                's.name as "Speciality Of Interest", ' \
+                's.id as speciality_id, ' \
+                'uct.id as tracker_id, ' \
+                'uct.progress, ' \
+                'uct.status ' \
+                'from t_user u ' \
+                'Join t_user_role ur On u.id = ur.user_id ' \
+                'Join t_role r On r.id = ur.role_id ' \
+                'Join t_user_course uc On uc.user_id = u.id ' \
+                'Join t_user_course_tracker uct On uct.user_course_id = uc.id ' \
+                'Join t_course_speciality cs On cs.course_id = uc.course_id ' \
+                'Join m_speciality s On s.id = cs.speciality_id ' \
+                'Join t_chapter ch On ch.id = uct.widget_id and uct.widget_type = "CHAPTER" ' \
+                'Where uct.is_archived = 0 ' \
+                'And ch.is_webinar = 0 ' \
+                'And ur.role_id Not In (1,4,5,8,10,17,18,23) ' \
+                'And u.id Between '
+        query += str(startRange)
+        query += ' And '
+        query += str(endRange)
+        query += ' And '
+        query += 'u.id Not In ' \
+                 '(Select u.id From t_user u ' \
+                 'Join t_user_role ur On ur.user_id = u.id ' \
+                 'Where ' \
+                 'u.id Between '
+        query += str(startRange)
+        query += ' And '
+        query += str(endRange)
+        query += ' And ur.role_id = 1 Or ur.role_id = 4 Or ur.role_id = 5 Or ur.role_id = 8 Or ur.role_id = 10 Or ur.role_id = 17 Or ur.role_id = 18 Or ur.role_id = 23 Group By u.id)'
+        query += ' Order By u.id asc, ' \
+                 'uct.id asc'
+        print('---------------------------------------')
+        print(query)
+        print('---------------------------------------')
+        startRange = endRange
+        endRange = endRange + 10000
+        dfQuery = pd.read_sql(query, dbConnection)
+        df = pd.concat([df, dfQuery], ignore_index=True)
+    # Calculate progress mean for user with each speciality
+    print("****************PROGRESS CALCULATION*********************")
+    # Convert the column to int
+    df["progress"] = df["progress"].astype(int)
+    df['progress_mean'] = df.groupby(['User ID', 'speciality_id'])['progress'].transform('mean')
+    #Remove the duplicate user id & speciality id column
+    print("****************REMOVE DUPLICATE*********************")
+    df = df.drop_duplicates(subset=['User ID', 'speciality_id'], keep='last')
+    #Find the mean value for each speciality
+    df['mean'] = (df.groupby(['speciality_id'])['progress_mean'].transform('mean'))
+    print("****************ENGAGEMENT CALCULATION*********************")
+    #Set Engagement level
+    df.loc[(df['progress_mean'] > ((df['mean']) + ((df['mean'])*0.1))),['Engagement Level']] = 'VERY_HIGH'
+    df.loc[(df['progress_mean'] <= ((df['mean']) + ((df['mean'])*0.1)))  & (df['progress_mean'] > ((df['mean']) - ((df['mean'])*0.1))), ['Engagement Level']] = 'HIGH'
+    df.loc[(df['progress_mean'] <= ((df['mean']) - ((df['mean'])*0.1)))  & (df['progress_mean'] > ((df['mean']) - ((df['mean'])*0.4))), ['Engagement Level']] = 'MEDIUM'
+    df.loc[(df['progress_mean'] <= ((df['mean']) - ((df['mean'])*0.4)))  & (df['progress_mean'] > ((df['mean']) - ((df['mean'])*1))), ['Engagement Level']] = 'LOW'
+    df.loc[(df['progress_mean']) <= 0, ['Engagement Level']] = 'NEVER'
 
-    # df.to_csv('/Users/santhosh-omni/Desktop/query_result.csv')
-    result = df[(df['engagement_level'] == ['LOW', 'MEDIUM'])]
-    # print(a.head())
-    # b = df[(df['engagement_level'] == 'LOW')]
-    # print(b.head())
-    # result = pd.concat([a, b])
-    print(result.head())
-    # return result.to_csv()
-    # print(df.head())
-    return 'Hello World.!'
+    #Retrive All the user Id
+    arr = df["User ID"].to_numpy()
+    arr = list(set(arr))
+    string_ints = [str(int) for int in arr]
+    #Update the user details
+    queryForUsers = 'Select u.id as "User ID", '\
+            'Replace(u.first_name,\',\',\' \') as "First Name", '\
+            'Replace(u.last_name,\',\',\' \') as "Last Name", '\
+            'u.email as "Email", '\
+            'Replace(u.mobile_number,\',\',\' \') as "Contact No.", '\
+            'r.name as "Location/Region", '\
+            'u.created_at as "Registration Date", '\
+            'if(u.is_email_verified = 1, "YES", "NO") as "isEmailVerified", '\
+            'if(u.is_dnd = 1, "YES", "NO") as "isDND", '\
+            'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified", '\
+            'if(IsNull(ur.rep_code), 0, ur.rep_code) as "rep_code" '\
+            'from t_user u '\
+            'Join m_region r On u.registration_region_id = r.id '\
+            'Join t_user_role ur On ur.user_id = u.id '\
+            'Where u.id in (' + (",".join(string_ints) )+ ') group by u.id order by u.id asc'
+    #Concat the data by user id
+    dfUserDetails = pd.read_sql(queryForUsers, dbConnection);
+    df["User ID"] = df["User ID"].astype(int)
+    df = pd.merge(df, dfUserDetails, on="User ID")
+    print(len(df.axes[0]))
+    #Adding activity level
+    print("****************Activity Level*********************")
+    # > last 3 months
+    print("------------------Start Last 3 Months--------------")
+    queryLast3Months = 'Select u.id as "User ID", '\
+                       'Count(Nullif(uwptt.user_id,0)) as last_3_visited_count, '\
+                       'from t_user u '\
+                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+                       'where u.id in (' + (",".join(string_ints) )+ ') '\
+                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -3 Month) '\
+                       'group by u.id order by u.id asc'
+    dfLast3 = pd.read_sql(queryLast3Months, dbConnection);
+    df = pd.merge(df, dfLast3, on="User ID")
+    print("xxxxxxxxxxxxxxxxxxEnd Last 3 Monthsxxxxxxxxxxxxxxxxxxxx")
+    #  < last 3 months > last 6 months
+    print("------------------Start Last 3 To 9 Months--------------")
+    queryLast3To9Months = 'Select u.id as "User ID", '\
+                       'Count(Nullif(uwptt.user_id,0)) as last_3_to_9_visited_count, '\
+                       'uwptt.updated_at as last_visited_at  from t_user u '\
+                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+                       'where u.id in (' + (",".join(string_ints)) + ') '\
+                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -9 Month) '\
+                       'And uwptt.updated_at < DATE_ADD(NOW(), INTERVAL -3 Month) '\
+                       'group by u.id order by u.id asc'
+    dfLast3To6 = pd.read_sql(queryLast3Months, dbConnection);
+    df = pd.merge(df, dfLast3To6, on="User ID")
+    print("xxxxxxxxxxxxxxxxxxEnd Last 3 To 9 Monthsxxxxxxxxxxxxxxxxxxxx")
+    #  < last 3 months > last 6 months
+    print("------------------Start Last 9 Months--------------")
+    queryLast9Months = 'Select u.id as "User ID", '\
+                          'Count(Nullif(uwptt.user_id,0)) as last_3-9_visited_count, '\
+                          'uwptt.updated_at as last_visited_at  from t_user u '\
+                          'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+                          'where u.id in (' + (",".join(string_ints)) + ') '\
+                          'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -9 Month) '\
+                          'And uwptt.updated_at < DATE_ADD(NOW(), INTERVAL -3 Month) '\
+                          'group by u.id order by u.id asc'
+    dfLast9 = pd.read_sql(queryLast9Months, dbConnection);
+    df = pd.merge(df, dfLast9, on="User ID")
+    print("xxxxxxxxxxxxxxxxxxEnd Last 9 Monthsxxxxxxxxxxxxxxxxxxxx")
+    print("****************SAVE FILE*********************")
+    values = {"last_3_visited_count": 0, "last_3_to_9_visited_count": 0, "last_9_visited_count": 0}
+    df.fillna(value=values)
+    print("------------------Adding Last Visited Date--------------")
+    queryLastVisited= 'Select u.id as "User ID", ' \
+                       'uwptt.updated_at as last_visited_at  from t_user u ' \
+                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id ' \
+                       'where u.id in (' + (",".join(string_ints)) + ') ' \
+                       'group by u.id order by u.id asc'
+    dfLastVisited = pd.read_sql(queryLastVisited, dbConnection);
+    df = pd.merge(df, dfLastVisited, on="User ID")
 
-@app.route('/', methods=['POST'])
-def hello_world_post():
-    # df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/query_result.csv')
-    df = pd.read_csv('/Users/santhosh-omni/Desktop/query_result.csv')
-    # Updating the progress to 100 id status is completed
-    df.loc[df['status'] == 'COMPLETED', ['progress']] = 100
-    #Group all the user id with speciality id and find the average
-    # grouped_df = df.groupby("status")
-    # mean_df = grouped_df.mean()
-    # print("^^^^^^^^^^^^^^^^^")
-    # print(mean_df.head())
-    # print("^^^^^^^^^^^^^^^^^")
-    grouped_multiple = df.groupby(['User ID', 'speciality_id'])
-    # mean_df = grouped_multiple.mean('progress')
-    # df['Data4'] = grouped_multiple.mean('progress')
-    # df['Data4'] = df['progress'].groupby(df['User ID', 'speciality_id']).transform('sum')
-    # df.map(df.groupby('User ID','speciality_id')['progress'].sum())
+    #Adding Activity Level
+    print("****************Activity Level Query*********************")
+    queryLastVisited = 'Select u.id as "User ID", '\
+                       'Count(Nullif(uwptt.user_id,0)) as "Number Of Visits", ' \
+                       'uwptt.updated_at as "Last Activity Date" '\
+                       'from t_user u '\
+                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+                       'where u.id in (' + (",".join(string_ints) )+ ') '\
+                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -3 Month) '\
+                       'group by u.id order by u.id asc'
+    dfLastVisited = pd.read_sql(queryLastVisited, dbConnection);
+    df = pd.merge(df, dfLastVisited.rename(columns={'User ID': 'User ID'}), on='User ID', how='left')
+    values = {"Number Of Visits": 0}
+    df.fillna(value=values)
+    print("####################End Activity Level Query######################")
 
-    df['progress_mean'] = df.groupby(['User ID','speciality_id']).progress.transform('mean')
-    df = df.drop_duplicates(['User ID','speciality_id'])
+    print("****************Activity Level*********************")
+    # print(len(df.axes[0]))
+    #Format Registration Date
+    df['Registration Date'] = pd.to_datetime(df['Registration Date'], format='%Y-%m-%d %H:%M:%S')
+    #Filling Null Value For Last Active date
+    df['Last Activity Date'].fillna("2000-01-01 00:00:00", inplace=True)
+    # Format Registration Date
+    df['Last Activity Date'] = pd.to_datetime(df['Last Activity Date'], format='%Y-%m-%d %H:%M:%S')
+    # Format Number Of Visits
+    df["Number Of Visits"] = df["Number Of Visits"].astype(int)
+    #Find Last 3 & 9 month date
+    now = pd.to_datetime('now', format='%Y-%m-%d %H:%M:%S')
+    last3 = now - pd.DateOffset(months=3)
+    last9 = now - pd.DateOffset(months=9)
 
-    df['mean'] = (df.groupby(['speciality_id'])['progress_mean']
-                  .transform('mean'))
+    #Registration less than 3 months
+    print("****************Activity Level Last 3 months*********************")
+    # High
+    df.loc[(df['Registration Date'] >= last3) & (df['Number Of Visits'] > 3), ['Activity Level']] = 'HIGH'
+    # Medium
+    df.loc[(df['Registration Date'] >= last3) & (df['Number Of Visits'] < 4 & (df['Number Of Visits'] > 1)), [
+        'Activity Level']] = 'MEDIUM'
+    #Less
+    df.loc[(df['Registration Date'] >= last3) & (df['Number Of Visits'] < 2),['Activity Level']] = 'LESS'
 
-    df.loc[(df['progress_mean'] > (df['mean'])*0.01),['engagement_level']] = 'VERY_HIGH'
-    df.loc[(((df['progress_mean']) * 10) > (df['mean'])) & ((df['progress_mean']) <= ((df['mean']) * 0.01)), ['engagement_level']] = 'HIGH'
-    df.loc[(((df['progress_mean']) * 40) > (df['mean'])) & ((df['mean']) >= ((df['progress_mean']) * 10)), ['engagement_level']] = 'MEDIUM'
-    df.loc[(((df['progress_mean']) * 100) > 0) & ((df['mean']) >= ((df['progress_mean']) * 40)), ['engagement_level']] = 'LOW'
-    df.loc[(df['progress_mean']) <= 0, ['engagement_level']] = 'NEVER'
-    print("^^^^^^^^^^^^^^^^^")
-    print(df.head())
-    print("^^^^^^^^^^^^^^^^^")
-    df.to_csv('/Users/santhosh-omni/Desktop/query_result_d.csv')
-    # result = df[(df['engagement_level'] == ['LOW', 'MEDIUM'])]
-    # print(a.head())
-    # b = df[(df['engagement_level'] == 'LOW')]
-    # print(b.head())
-    # result = pd.concat([a, b])
-    # print(df)
-    # return result.to_csv()
-    # print(df.head())
+    # Registration less than 3 to 9 months
+    print("****************Activity Level Last 3 To 9 months*********************")
+    # High
+    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (df['Number Of Visits'] > 3), [
+        'Activity Level']] = 'HIGH'
+    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)) & (df['Last Activity Date'] >= last3)), ['Activity Level']] = 'HIGH'
+    # Medium
+    # df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (df['Number Of Visits'] < 4 & (df['Number Of Visits'] > 1)), ['Activity Level']] = 'MEDIUM'
+    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (
+            (df['Number Of Visits'] > 1) & (
+            (df['Last Activity Date'] >= last9) & (df['Last Activity Date'] < last3))), [
+               'Activity Level']] = 'MEDIUM'
+    #Less
+    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
+    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & ((df['Number Of Visits'] > 1) & (df['Last Activity Date'] < last9)), ['Activity Level']] = 'LESS'
+
+    # Registration less than 9 months
+    print("****************Activity Level Last 9 months*********************")
+    #High
+    df.loc[(df['Registration Date'] < last9) & ((df['Number Of Visits'] > 3) & (df['Last Activity Date'] >= last3)), ['Activity Level']] = 'HIGH'
+    #Medium
+    df.loc[(df['Registration Date'] < last9) & ((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)), ['Activity Level']] = 'MEDIUM'
+    df.loc[(df['Registration Date'] < last9) & ((df['Number Of Visits'] > 3) & ((df['Last Activity Date'] >= last9) & (df['Last Activity Date'] < last3))), [
+        'Activity Level']] = 'MEDIUM'
+    #Less
+    df.loc[(df['Registration Date'] < last9) & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
+    df.loc[(df['Registration Date'] < last9) & (df['Last Activity Date'] < last9), ['Activity Level']] = 'LESS'
+    df.loc[(df['Registration Date'] < last9) & (((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)) & (df['Last Activity Date'] < last9)), [
+        'Activity Level']] = 'LESS'
+    print("####################End Activity Level ######################")
+    df.to_csv('/Users/santhosh-omni/Desktop/data/data-res-5118.csv', index=False)
+
     return "Done"
 
 
