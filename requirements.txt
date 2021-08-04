@@ -20,3 +20,4 @@ seaborn==0.11.1
 six==1.16.0
 SQLAlchemy==1.4.20
 Werkzeug==2.0.1
+gunicorn==20.0.4
