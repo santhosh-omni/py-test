@@ -18,11 +18,11 @@ CORS(app)
 # user_name = os.envirn.get('backend')
 # password = os.envirn.get('backend1234')
 
-
 @app.route('/generate/report', methods=['POST'])
 def generate_report():
     # Sql Connection
-    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    # sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     dbConnection = sqlEngine.connect()
     queryForCount = 'Select Count(u.id) as count From t_user u '
     dfCount = pd.read_sql(queryForCount, dbConnection);
@@ -95,78 +95,80 @@ def generate_report():
     arr = df["User ID"].to_numpy()
     arr = list(set(arr))
     string_ints = [str(int) for int in arr]
-    #Update the user details
-    queryForUsers = 'Select u.id as "User ID", '\
-            'Replace(u.first_name,\',\',\' \') as "First Name", '\
-            'Replace(u.last_name,\',\',\' \') as "Last Name", '\
-            'u.email as "Email", '\
-            'Replace(u.mobile_number,\',\',\' \') as "Contact No.", '\
-            'r.name as "Location/Region", '\
-            'u.created_at as "Registration Date", '\
-            'if(u.is_email_verified = 1, "YES", "NO") as "isEmailVerified", '\
-            'if(u.is_dnd = 1, "YES", "NO") as "isDND", '\
-            'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified", '\
-            'if(IsNull(ur.rep_code), 0, ur.rep_code) as "rep_code" '\
-            'from t_user u '\
-            'Join m_region r On u.registration_region_id = r.id '\
-            'Join t_user_role ur On ur.user_id = u.id '\
-            'Where u.id in (' + (",".join(string_ints) )+ ') group by u.id order by u.id asc'
-    #Concat the data by user id
+
+    #Adding activity level Deprecated
+    print("****************Activity Level*********************")
+    # > last 3 months
+    # print("------------------Start Last 3 Months--------------")
+    # queryLast3Months = 'Select u.id as "User ID", '\
+    #                    'Count(Nullif(uwptt.user_id,0)) as last_3_visited_count, '\
+    #                    'from t_user u '\
+    #                    'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+    #                    'where u.id in (' + (",".join(string_ints) )+ ') '\
+    #                    'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -3 Month) '\
+    #                    'group by u.id order by u.id asc'
+    # dfLast3 = pd.read_sql(queryLast3Months, dbConnection);
+    # df = pd.merge(df, dfLast3, on="User ID")
+    # print("xxxxxxxxxxxxxxxxxxEnd Last 3 Monthsxxxxxxxxxxxxxxxxxxxx")
+    # #  < last 3 months > last 6 months
+    # print("------------------Start Last 3 To 9 Months--------------")
+    # queryLast3To9Months = 'Select u.id as "User ID", '\
+    #                    'Count(Nullif(uwptt.user_id,0)) as last_3_to_9_visited_count, '\
+    #                    'uwptt.updated_at as last_visited_at  from t_user u '\
+    #                    'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+    #                    'where u.id in (' + (",".join(string_ints)) + ') '\
+    #                    'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -9 Month) '\
+    #                    'And uwptt.updated_at < DATE_ADD(NOW(), INTERVAL -3 Month) '\
+    #                    'group by u.id order by u.id asc'
+    # dfLast3To6 = pd.read_sql(queryLast3Months, dbConnection);
+    # df = pd.merge(df, dfLast3To6, on="User ID")
+    # print("xxxxxxxxxxxxxxxxxxEnd Last 3 To 9 Monthsxxxxxxxxxxxxxxxxxxxx")
+    # #  < last 3 months > last 6 months
+    # print("------------------Start Last 9 Months--------------")
+    # queryLast9Months = 'Select u.id as "User ID", '\
+    #                       'Count(Nullif(uwptt.user_id,0)) as last_3-9_visited_count, '\
+    #                       'uwptt.updated_at as last_visited_at  from t_user u '\
+    #                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
+    #                       'where u.id in (' + (",".join(string_ints)) + ') '\
+    #                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -9 Month) '\
+    #                       'And uwptt.updated_at < DATE_ADD(NOW(), INTERVAL -3 Month) '\
+    #                       'group by u.id order by u.id asc'
+    # dfLast9 = pd.read_sql(queryLast9Months, dbConnection);
+    # df = pd.merge(df, dfLast9, on="User ID")
+    # print("xxxxxxxxxxxxxxxxxxEnd Last 9 Monthsxxxxxxxxxxxxxxxxxxxx")
+    # print("****************SAVE FILE*********************")
+    # values = {"last_3_visited_count": 0, "last_3_to_9_visited_count": 0, "last_9_visited_count": 0}
+    # df.fillna(value=values)
+    # print("------------------Adding Last Visited Date--------------")
+    # queryLastVisited= 'Select u.id as "User ID", ' \
+    #                    'uwptt.updated_at as last_visited_at  from t_user u ' \
+    #                    'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id ' \
+    #                    'where u.id in (' + (",".join(string_ints)) + ') ' \
+    #                    'group by u.id order by u.id asc'
+    # dfLastVisited = pd.read_sql(queryLastVisited, dbConnection);
+    # df = pd.merge(df, dfLastVisited, on="User ID")
+
+    # Update the user details
+    print("****************Adding User Details*********************")
+    queryForUsers = 'Select u.id as "User ID", ' \
+                    'Replace(u.first_name,\',\',\' \') as "First Name", ' \
+                    'Replace(u.last_name,\',\',\' \') as "Last Name", ' \
+                    'u.email as "Email", ' \
+                    'Replace(u.mobile_number,\',\',\' \') as "Contact No.", ' \
+                    'r.name as "Location/Region", ' \
+                    'u.created_at as "Registration Date", ' \
+                    'if(u.is_email_verified = 1, "YES", "NO") as "isEmailVerified", ' \
+                    'if(u.is_dnd = 1, "YES", "NO") as "isDND", ' \
+                    'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified", ' \
+                    'if(IsNull(ur.rep_code), 0, ur.rep_code) as "rep_code" ' \
+                    'from t_user u ' \
+                    'Join m_region r On u.registration_region_id = r.id ' \
+                    'Join t_user_role ur On ur.user_id = u.id ' \
+                    'Where u.id in (' + (",".join(string_ints)) + ') group by u.id order by u.id asc'
+    # Concat the data by user id
     dfUserDetails = pd.read_sql(queryForUsers, dbConnection);
     df["User ID"] = df["User ID"].astype(int)
     df = pd.merge(df, dfUserDetails, on="User ID")
-    print(len(df.axes[0]))
-    #Adding activity level
-    print("****************Activity Level*********************")
-    # > last 3 months
-    print("------------------Start Last 3 Months--------------")
-    queryLast3Months = 'Select u.id as "User ID", '\
-                       'Count(Nullif(uwptt.user_id,0)) as last_3_visited_count, '\
-                       'from t_user u '\
-                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
-                       'where u.id in (' + (",".join(string_ints) )+ ') '\
-                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -3 Month) '\
-                       'group by u.id order by u.id asc'
-    dfLast3 = pd.read_sql(queryLast3Months, dbConnection);
-    df = pd.merge(df, dfLast3, on="User ID")
-    print("xxxxxxxxxxxxxxxxxxEnd Last 3 Monthsxxxxxxxxxxxxxxxxxxxx")
-    #  < last 3 months > last 6 months
-    print("------------------Start Last 3 To 9 Months--------------")
-    queryLast3To9Months = 'Select u.id as "User ID", '\
-                       'Count(Nullif(uwptt.user_id,0)) as last_3_to_9_visited_count, '\
-                       'uwptt.updated_at as last_visited_at  from t_user u '\
-                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
-                       'where u.id in (' + (",".join(string_ints)) + ') '\
-                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -9 Month) '\
-                       'And uwptt.updated_at < DATE_ADD(NOW(), INTERVAL -3 Month) '\
-                       'group by u.id order by u.id asc'
-    dfLast3To6 = pd.read_sql(queryLast3Months, dbConnection);
-    df = pd.merge(df, dfLast3To6, on="User ID")
-    print("xxxxxxxxxxxxxxxxxxEnd Last 3 To 9 Monthsxxxxxxxxxxxxxxxxxxxx")
-    #  < last 3 months > last 6 months
-    print("------------------Start Last 9 Months--------------")
-    queryLast9Months = 'Select u.id as "User ID", '\
-                          'Count(Nullif(uwptt.user_id,0)) as last_3-9_visited_count, '\
-                          'uwptt.updated_at as last_visited_at  from t_user u '\
-                          'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
-                          'where u.id in (' + (",".join(string_ints)) + ') '\
-                          'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -9 Month) '\
-                          'And uwptt.updated_at < DATE_ADD(NOW(), INTERVAL -3 Month) '\
-                          'group by u.id order by u.id asc'
-    dfLast9 = pd.read_sql(queryLast9Months, dbConnection);
-    df = pd.merge(df, dfLast9, on="User ID")
-    print("xxxxxxxxxxxxxxxxxxEnd Last 9 Monthsxxxxxxxxxxxxxxxxxxxx")
-    print("****************SAVE FILE*********************")
-    values = {"last_3_visited_count": 0, "last_3_to_9_visited_count": 0, "last_9_visited_count": 0}
-    df.fillna(value=values)
-    print("------------------Adding Last Visited Date--------------")
-    queryLastVisited= 'Select u.id as "User ID", ' \
-                       'uwptt.updated_at as last_visited_at  from t_user u ' \
-                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id ' \
-                       'where u.id in (' + (",".join(string_ints)) + ') ' \
-                       'group by u.id order by u.id asc'
-    dfLastVisited = pd.read_sql(queryLastVisited, dbConnection);
-    df = pd.merge(df, dfLastVisited, on="User ID")
 
     #Adding Activity Level
     print("****************Activity Level Query*********************")
@@ -176,7 +178,6 @@ def generate_report():
                        'from t_user u '\
                        'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
                        'where u.id in (' + (",".join(string_ints) )+ ') '\
-                       'And uwptt.updated_at >= DATE_ADD(NOW(), INTERVAL -3 Month) '\
                        'group by u.id order by u.id asc'
     dfLastVisited = pd.read_sql(queryLastVisited, dbConnection);
     df = pd.merge(df, dfLastVisited.rename(columns={'User ID': 'User ID'}), on='User ID', how='left')
@@ -239,8 +240,9 @@ def generate_report():
     df.loc[(df['Registration Date'] < last9) & (((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)) & (df['Last Activity Date'] < last9)), [
         'Activity Level']] = 'LESS'
     print("####################End Activity Level ######################")
-    df.to_csv('/Users/santhosh-omni/Desktop/data/data-res-5118.csv', index=False)
 
+
+    df.to_csv('/Users/santhosh-omni/Desktop/data/data-res-448.csv', index=False)
     return "Done"
 
 
