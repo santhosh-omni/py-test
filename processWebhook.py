@@ -14,15 +14,18 @@ import json
 # %matplotlib inline
 app = Flask(__name__)
 CORS(app)
-
 # user_name = os.envirn.get('backend')
 # password = os.envirn.get('backend1234')
 
 @app.route('/generate/report', methods=['POST'])
 def generate_report():
     # Sql Connection
-    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
-    # sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    #Staging
+    # sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    #Pre-prod
+    # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    #Production
+    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     dbConnection = sqlEngine.connect()
     queryForCount = 'Select Count(u.id) as count From t_user u '
     dfCount = pd.read_sql(queryForCount, dbConnection);
@@ -241,10 +244,8 @@ def generate_report():
         'Activity Level']] = 'LESS'
     print("####################End Activity Level ######################")
 
-
-    df.to_csv('/Users/santhosh-omni/Desktop/data/data-res-448.csv', index=False)
+    df.to_csv('/home/santhosh-omni/data/data-res-448.csv', index=False)
     return "Done"
-
 
 @app.route('/user-engagement', methods=['POST'])
 # @cross_origin()
