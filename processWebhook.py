@@ -21,9 +21,9 @@ CORS(app)
 def generate_report():
     # Sql Connection
     #Staging
-    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    # sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Pre-prod
-    # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Production
     # sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     dbConnection = sqlEngine.connect()
@@ -233,6 +233,11 @@ def generate_report():
     df["User ID"] = df["User ID"].astype(int)
     df = pd.merge(df, dfUserDetails, on="User ID")
 
+    #Specify Enrollment Type
+    df["rep_code"] = df["rep_code"].astype(int)
+    df.loc[(df['rep_code'] >0), ['Enrollment Type']] = 'REP'
+    df['Enrollment Type'].fillna("ORGANIC", inplace=True)
+
     #Adding Activity Level
     print("****************Activity Level Query*********************")
     queryLastVisited = 'Select u.id as "User ID", '\
@@ -305,7 +310,7 @@ def generate_report():
     print("####################End Activity Level ######################")
     #TODO: remove
     df["Activity Level"].fillna("MEDIUM", inplace=True)
-    df.to_csv('/home/santhosh-omni/data/data-stg.csv', index=False)
+    df.to_csv('/home/santhosh-omni/data/data-pre-prod.csv', index=False)
     return "Done"
 
 @app.route('/user-engagement', methods=['POST'])
@@ -366,7 +371,7 @@ def user_engagement():
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
     result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean', 'rep_code'], axis = 1)
-    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Registration Date', 'isEmailVerified', 'isDND','isMCIVerified', 'Engagement Level','Number Of Visits', 'Last Activity Date', 'Activity Level']]
+    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Engagement Level','Activity Level', 'Registration Date','Number Of Visits', 'Last Activity Date','Enrollment Type', 'isEmailVerified', 'isDND','isMCIVerified' ]]
     # return result.to_csv(index=False)
     return result.to_csv(index=False)
 
