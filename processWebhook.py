@@ -21,11 +21,11 @@ CORS(app)
 def generate_report():
     # Sql Connection
     #Staging
-    # sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Pre-prod
     # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Production
-    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    # sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     dbConnection = sqlEngine.connect()
     queryForCount = 'Select u.id as count From t_user u Order By u.id DESC LIMIT 1'
     dfCount = pd.read_sql(queryForCount, dbConnection);
@@ -53,6 +53,7 @@ def generate_report():
                 'Where uct.is_archived = 0 ' \
                 'And ch.is_webinar = 0 ' \
                 'And s.id In (Select s.id From m_speciality s) ' \
+                'And u.is_dnd=0 ' \
                 'And u.id Between '
         query += str(startRange)
         query += ' And '
@@ -105,7 +106,9 @@ def generate_report():
                 'FROM t_user_speciality_of_interest soi ' \
                 'Join t_user u On soi.user_id = u.id ' \
                 'Join m_speciality s On s.id = soi.speciality_id ' \
-                'Where soi.user_id Between '
+                'Where ' \
+                'u.is_dnd=0 ' \
+                'And soi.user_id Between '
         query += str(startRange)
         query += ' And '
         query += str(endRange)
@@ -300,8 +303,9 @@ def generate_report():
     df.loc[(df['Registration Date'] < last9) & (((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)) & (df['Last Activity Date'] < last9)), [
         'Activity Level']] = 'LESS'
     print("####################End Activity Level ######################")
-
-    df.to_csv('/home/santhosh-omni/data/data-prod.csv', index=False)
+    #TODO: remove
+    df["Activity Level"].fillna("MEDIUM", inplace=True)
+    df.to_csv('/home/santhosh-omni/data/data-stg.csv', index=False)
     return "Done"
 
 @app.route('/user-engagement', methods=['POST'])
@@ -314,7 +318,21 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/prod/data-prod.csv')
+    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/stg/data.csv')
+
+    if 'enrollmentType' in request_data:
+        dfTempEnrollment = None
+        if result is None:
+            result = df
+        for e in request_data['enrollmentType']:
+            if e == "ORGANIC":
+                res = result[(result['rep_code'] == 0)]
+                dfTempEnrollment = pd.concat([dfTempEnrollment, res])
+            elif e == "REP":
+                res = result[(result['rep_code'] > 0)]
+                dfTempEnrollment = pd.concat([dfTempEnrollment, res])
+        result = dfTempEnrollment
+
     if 'specialityId' in request_data:
         dfTempSpeciality = None
         if result is None:
@@ -347,8 +365,8 @@ def user_engagement():
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean', 'rep_code', 'Number Of Visits', 'Last Activity Date', 'Activity Level'], axis = 1)
-    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Registration Date', 'isEmailVerified', 'isDND','isMCIVerified', 'Engagement Level']]
+    result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean', 'rep_code'], axis = 1)
+    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Registration Date', 'isEmailVerified', 'isDND','isMCIVerified', 'Engagement Level','Number Of Visits', 'Last Activity Date', 'Activity Level']]
     # return result.to_csv(index=False)
     return result.to_csv(index=False)
 
