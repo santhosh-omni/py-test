@@ -337,18 +337,19 @@ def generate_report_v2():
                 '(select a.id as "User ID", ' \
                 'c.name as "Speciality Of Interest", ' \
                 'c.id as speciality_id, ' \
-                'b.time_watched from ' \
+                'if(b.time_watched is NULL, 0, b.time_watched) as time_watched ' \
+                'from ' \
                 't_user a ' \
                 'join t_user_speciality_of_interest b ' \
-                'join m_speciality c ' \
-                'on a.id = b.user_id ' \
+                'join m_speciality c on a.id = b.user_id ' \
                 'and b.speciality_id = c.id ' \
                 'and a.email not like "%omni%" ' \
                 'and a.email not like "%test%" ' \
                 'and a.email not like "%dummy%" ' \
                 'and a.email like "%@%" ' \
                 'and b.speciality_id = '+str(i)+' ' \
-                'group by b.user_id, b.speciality_id) s ' \
+                'group by b.user_id, b.speciality_id ' \
+                ') s ' \
                 'join ' \
                 '(select a.speciality_id as sid, avg(time_watched) as mean from ' \
                 '(select speciality_id, time_watched from t_user_speciality_of_interest ' \
@@ -364,13 +365,24 @@ def generate_report_v2():
 
     print("****************ENGAGEMENT CALCULATION*********************")
     #Set Engagement level
-    df.loc[(df['time_watched']) <= 0, ['Engagement Level']] = 'NEVER'
-    df.loc[(df['time_watched'] < (0.6 * df['mean'])), ['Engagement Level']] = 'LOW'
-    df.loc[(df['time_watched'] < (0.9 * df['mean'])) & (df['time_watched'] >= (0.6 * df['mean'])), [
-        'Engagement Level']] = 'MEDIUM'
+    df.loc[(df['time_watched'] >= (1.1 * df['mean'])), ['Engagement Level']] = 'VERY_HIGH'
     df.loc[(df['time_watched'] < (1.1 * df['mean'])) & (df['time_watched'] >= (0.9 * df['mean'])), [
         'Engagement Level']] = 'HIGH'
-    df.loc[(df['time_watched'] >= (1.1 * df['mean'])), ['Engagement Level']] = 'VERY_HIGH'
+    df.loc[(df['time_watched'] < (0.9 * df['mean'])) & (df['time_watched'] >= (0.6 * df['mean'])), [
+        'Engagement Level']] = 'MEDIUM'
+    df.loc[(df['time_watched'] < (0.6 * df['mean'])), ['Engagement Level']] = 'LOW'
+    df.loc[(df['time_watched']) <= 0, ['Engagement Level']] = 'NEVER'
+
+    # print("****************ENGAGEMENT CALCULATION*********************")
+    # #Set Engagement level
+    # df.loc[(df['time_watched'] >= (1.1 * df['mean'])), ['Engagement Level']] = 'VERY_HIGH'
+    # df.loc[(df['time_watched'] < (1.1 * df['mean'])) & (df['time_watched'] >= (0.7 * df['mean'])), [
+    #     'Engagement Level']] = 'HIGH'
+    # df.loc[(df['time_watched'] < (0.7 * df['mean'])) & (df['time_watched'] >= (0.3 * df['mean'])), [
+    #     'Engagement Level']] = 'MEDIUM'
+    # df.loc[(df['time_watched'] < (0.3 * df['mean'])), ['Engagement Level']] = 'LOW'
+    # df.loc[(df['time_watched']) <= 0, ['Engagement Level']] = 'NEVER'
+
     #Retrive All the user Id
     arr = df["User ID"].to_numpy()
     arr = list(set(arr))
@@ -439,8 +451,7 @@ def generate_report_v2():
                     'u.created_at as "Registration Date", ' \
                     'if(u.is_email_verified = 1, "YES", "NO") as "isEmailVerified", ' \
                     'if(u.is_dnd = 1, "YES", "NO") as "isDND", ' \
-                    'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified", ' \
-                    'if(IsNull(ur.rep_code), 0, ur.rep_code) as "rep_code" ' \
+                    'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified" ' \
                     'from t_user u ' \
                     'Join m_region r On u.registration_region_id = r.id ' \
                     'Join t_user_role ur On ur.user_id = u.id ' \
@@ -450,20 +461,111 @@ def generate_report_v2():
     df["User ID"] = df["User ID"].astype(int)
     df = pd.merge(df, dfUserDetails, on="User ID")
 
+    #Set Rep Code
+    dfRep = None
+    for i in arrSpeciality:
+        queryRep = ''
+        queryRep += 'Select ' \
+                    'u.id as "User ID", ' \
+                    'sc.speciality_id, ' \
+                    'If(uc.rep_code is not null, 1, 0) as rep_code ' \
+                    'From t_user u ' \
+                    'Join t_user_course uc On uc.user_id = u.id ' \
+                    'Join t_course_speciality sc On sc.course_id = uc.course_id ' \
+                    'Where sc.speciality_id = '+str(i)+' and uc.rep_code is not null ' \
+                    'group by uc.user_id'
+        print('---------------------------------------')
+        print(queryRep)
+        print('---------------------------------------')
+        dfQueryRep = pd.read_sql(text(queryRep), dbConnection)
+        print(dfQueryRep)
+        dfRep = pd.concat([dfRep, dfQueryRep], ignore_index=True)
+    df = pd.merge(df, dfRep, on=['User ID', 'speciality_id'], how='left')
     #Specify Enrollment Type
-    df.loc[(df['rep_code'] != "0"), ['Enrollment Type']] = 'REP'
+    df['rep_code'].fillna("0", inplace=True)
+    df["rep_code"] = df["rep_code"].astype(int)
+    df.loc[(df['rep_code'] != 0), ['Enrollment Type']] = 'REP'
     df['Enrollment Type'].fillna("ORGANIC", inplace=True)
 
     #Adding Activity Level
     print("****************Activity Level Query*********************")
-    queryLastVisited = 'Select u.id as "User ID", '\
-                       'Count(Nullif(uwptt.user_id,0)) as "Number Of Visits", ' \
-                       'uwptt.updated_at as "Last Activity Date" '\
-                       'from t_user u '\
-                       'Left Join t_user_product_wise_time_tracker uwptt On u.id = uwptt.user_id '\
-                       'where u.id in (' + (",".join(string_ints) )+ ') '\
-                       'group by u.id order by u.id asc'
-    dfLastVisited = pd.read_sql(queryLastVisited, dbConnection);
+    queryLastVisited = 'select user_id as "User ID", ' \
+                       'count(*) as "Number Of Visits", ' \
+                       'min(DATEDIFF(NOW(), m2)) as days_since_last, ' \
+                       'm2 as "Last Activity Date", ' \
+                       'registration ' \
+                       'from ' \
+                       '(select ' \
+                       'a.user_id, ' \
+                       'm2, ' \
+                       'if(DATEDIFF(NOW(),b.created_at)<90,"NEW",if(DATEDIFF(NOW(),b.created_at)<270,"Medium","Old")) as registration ' \
+                       'from ' \
+                       '(select ' \
+                       'a.user_id as user_id, ' \
+                       'm2 ' \
+                       'from ' \
+                       '(select ' \
+                       'b.user_id, ' \
+                       'a.updated_at as m2 ' \
+                       'from ' \
+                       't_user_course_tracker a ' \
+                       'join t_user_course b on a.user_course_id = b.id ' \
+                       'and a.status!="NOT_STARTED" ' \
+                       'and a.updated_at!="2020-07-01 18:26:12" ' \
+                       'and a.updated_at!="2020-07-06 15:07:40" ' \
+                       'and a.updated_at!="2020-07-25 13:50:41" ' \
+                       'and a.updated_at!="2020-05-12 14:22:04" ' \
+                       'and a.updated_at!="2020-05-15 10:45:31" ' \
+                       'and a.updated_at!="2020-05-15 10:45:05" ' \
+                       'and a.updated_at!="2020-05-15 11:16:07" ' \
+                       'and a.updated_at!="2020-05-15 11:24:38" ' \
+                       'and a.updated_at!="2020-06-29 12:14:08" ' \
+                       'and a.updated_at!="2020-06-29 06:44:08" ' \
+                       'and a.updated_at!="2019-12-19 09:59:40" ' \
+                       'and a.updated_at!="2020-05-12 19:52:04" ' \
+                       'and a.updated_at!="2020-05-15 16:54:38" ' \
+                       'and a.updated_at!="2019-12-19 13:13:54" ' \
+                       'and a.updated_at!="2019-12-19 10:10:54" ' \
+                       'and a.updated_at!="2019-12-19 13:13:54" ' \
+                       'and a.updated_at!="2020-05-15 16:15:31" ' \
+                       'and a.updated_at!="2020-06-23 13:15:17" ' \
+                       'and a.updated_at!="2019-12-19 10:22:39" ' \
+                       'and a.updated_at!="2020-06-28 13:36:54" ' \
+                       'and a.updated_at!="2020-05-15 16:46:07" ' \
+                       'group by a.user_course_id, ' \
+                       'date(a.updated_at)) a ' \
+                       'union ' \
+                       '(select ' \
+                       'user_id, ' \
+                       'a.updated_at as m2 ' \
+                       'from ' \
+                       't_user_activity_tracker a ' \
+                       'where ' \
+                       '(status="SEEN" or forward_swipe_count!=0 or backward_swipe_count!=0) order by a.updated_at desc) ' \
+                       'union ' \
+                       '(select ' \
+                       'user_id, ' \
+                       'a.updated_at as m2 ' \
+                       'from t_user_webinar a ' \
+                       'where attended_live = 1) ' \
+                       'union ' \
+                       '(select ' \
+                       'user_id, ' \
+                       'start_time as m2 ' \
+                       'from ' \
+                       't_user_product_wise_time_tracker order by start_time desc ) ) a ' \
+                       'join t_user b ' \
+                       'join t_user_role c on a.user_id = b.id ' \
+                       'and b.id = c.user_id ' \
+                       'where c.role_id = 3 ' \
+                       'and b.email like "%@%" ' \
+                       'and b.email not like "%dummy%" ' \
+                       'and b.email not like "%test%"  ' \
+                       'group by user_id, m2 ' \
+                       'order by m2 desc' \
+                       ') a ' \
+                       'group by user_id'
+    dfLastVisited = pd.read_sql(text(queryLastVisited), dbConnection);
     df = pd.merge(df, dfLastVisited.rename(columns={'User ID': 'User ID'}), on='User ID', how='left')
     values = {"Number Of Visits": 0}
     df.fillna(value=values)
@@ -472,9 +574,11 @@ def generate_report_v2():
     print("****************Activity Level*********************")
     # print(len(df.axes[0]))
     #Format Registration Date
-    df['Registration Date'] = pd.to_datetime(df['Registration Date'], format='%Y-%m-%d %H:%M:%S')
+    #df['Registration Date'] = pd.to_datetime(df['Registration Date'], format='%Y-%m-%d %H:%M:%S')
     #Filling Null Value For Last Active date
     df['Last Activity Date'].fillna("2000-01-01 00:00:00", inplace=True)
+    df['registration'].fillna("Old", inplace=True)
+    df['Number Of Visits'].fillna(0, inplace=True)
     # Format Registration Date
     df['Last Activity Date'] = pd.to_datetime(df['Last Activity Date'], format='%Y-%m-%d %H:%M:%S')
     # Format Number Of Visits
@@ -484,49 +588,44 @@ def generate_report_v2():
     last3 = now - pd.DateOffset(months=3)
     last9 = now - pd.DateOffset(months=9)
 
-    #Registration less than 3 months
-    print("****************Activity Level Last 3 months*********************")
-    # High
-    df.loc[(df['Registration Date'] >= last3) & (df['Number Of Visits'] > 3), ['Activity Level']] = 'HIGH'
+    # Old Registered Users
+    print("****************Activity Level Old Users*********************")
+    # Less
+    df.loc[(df['registration'] == "Old") & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
+    df.loc[(df['registration'] == "Old") & (df['days_since_last'] > 270), ['Activity Level']] = 'LESS'
     # Medium
-    df.loc[(df['Registration Date'] >= last3) & (df['Number Of Visits'] < 4 & (df['Number Of Visits'] > 1)), [
-        'Activity Level']] = 'MEDIUM'
-    #Less
-    df.loc[(df['Registration Date'] >= last3) & (df['Number Of Visits'] < 2),['Activity Level']] = 'LESS'
-
-    # Registration less than 3 to 9 months
-    print("****************Activity Level Last 3 To 9 months*********************")
+    df.loc[(df['registration'] == "Old") & (df['days_since_last'] <= 270) & (df['Number Of Visits'] < 4) & (
+            df['Number Of Visits'] > 1), ['Activity Level']] = 'MEDIUM'
+    df.loc[(df['registration'] == "Old") & (df['days_since_last'] >= 270) & (df['days_since_last'] <= 90) & (
+            df['Number Of Visits'] > 3), ['Activity Level']] = 'MEDIUM'
     # High
-    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (df['Number Of Visits'] > 3), [
+    df.loc[(df['registration'] == "Old") & (df['days_since_last'] <= 90) & (df['Number Of Visits'] > 3), [
         'Activity Level']] = 'HIGH'
-    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)) & (df['Last Activity Date'] >= last3)), ['Activity Level']] = 'HIGH'
-    # Medium
-    # df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (df['Number Of Visits'] < 4 & (df['Number Of Visits'] > 1)), ['Activity Level']] = 'MEDIUM'
-    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (
-            (df['Number Of Visits'] > 1) & (
-            (df['Last Activity Date'] >= last9) & (df['Last Activity Date'] < last3))), [
-               'Activity Level']] = 'MEDIUM'
-    #Less
-    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
-    df.loc[((df['Registration Date'] >= last9) & (df['Registration Date'] < last3)) & ((df['Number Of Visits'] > 1) & (df['Last Activity Date'] < last9)), ['Activity Level']] = 'LESS'
 
-    # Registration less than 9 months
-    print("****************Activity Level Last 9 months*********************")
-    #High
-    df.loc[(df['Registration Date'] < last9) & ((df['Number Of Visits'] > 3) & (df['Last Activity Date'] >= last3)), ['Activity Level']] = 'HIGH'
-    #Medium
-    df.loc[(df['Registration Date'] < last9) & ((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)), ['Activity Level']] = 'MEDIUM'
-    df.loc[(df['Registration Date'] < last9) & ((df['Number Of Visits'] > 3) & ((df['Last Activity Date'] >= last9) & (df['Last Activity Date'] < last3))), [
-        'Activity Level']] = 'MEDIUM'
-    #Less
-    df.loc[(df['Registration Date'] < last9) & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
-    df.loc[(df['Registration Date'] < last9) & (df['Last Activity Date'] < last9), ['Activity Level']] = 'LESS'
-    df.loc[(df['Registration Date'] < last9) & (((df['Number Of Visits'] < 4) & (df['Number Of Visits'] > 1)) & (df['Last Activity Date'] < last9)), [
-        'Activity Level']] = 'LESS'
+    # Medium Registered Users
+    # Less
+    df.loc[(df['registration'] == "Medium") & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
+    df.loc[(df['registration'] == "Medium") & (df['days_since_last'] > 270), ['Activity Level']] = 'LESS'
+    # Medium
+    df.loc[(df['registration'] == "Medium") & (df['days_since_last'] >= 270) & (df['days_since_last'] <= 90) & (
+            df['Number Of Visits'] > 1), ['Activity Level']] = 'MEDIUM'
+    # High
+    df.loc[(df['registration'] == "Medium") & (df['days_since_last'] <= 90) & (df['Number Of Visits'] > 1), [
+        'Activity Level']] = 'HIGH'
+
+    # New Registered Users
+    # Less
+    df.loc[(df['registration'] == "NEW") & (df['Number Of Visits'] < 2), ['Activity Level']] = 'LESS'
+    # Medium
+    df.loc[(df['registration'] == "NEW") & (df['Number Of Visits'] > 1), ['Activity Level']] = 'MEDIUM'
+    # High
+    df.loc[(df['registration'] == "NEW") & (df['Number Of Visits'] > 3), ['Activity Level']] = 'HIGH'
+
+
     print("####################End Activity Level ######################")
     #TODO: remove
     df["Activity Level"].fillna("MEDIUM", inplace=True)
-    df.to_csv('/home/santhosh-omni/data/data-ket.csv', index=False)
+    df.to_csv('/home/santhosh-omni/data/data-v7.csv', index=False)
     return "Done"
 
 
@@ -540,8 +639,16 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/stg/data.csv')
-
+    # df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/stg/data.csv')
+    df = pd.read_csv('/home/santhosh-omni/data/data-v7.csv')
+    # Specify Enrollment Type
+    # df["rep_code"] = df["rep_code"].astype(int)
+    # df.loc[(df['rep_code'] > 0), ['Enrollment Type']] = 'REP'
+    # df.loc[(df['rep_code'] == 0), ['Enrollment Type']] = 'ORGANIC'
+    # df.to_csv('/home/santhosh-omni/data/data-v5.csv', index=False)
+    arr = df["User ID"].to_numpy()
+    arr = list(set(arr))
+    print("This size is", len(arr))
     if 'enrollmentType' in request_data:
         dfTempEnrollment = None
         if result is None:
@@ -584,6 +691,8 @@ def user_engagement():
 
     if result is None:
         return None
+    arrCheck = result["User ID"].to_numpy()
+    print("Total: ", len(arrCheck))
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
