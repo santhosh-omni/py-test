@@ -639,8 +639,8 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    # df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/stg/data.csv')
-    df = pd.read_csv('/home/santhosh-omni/data/data-v7.csv')
+    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/stg/data.csv')
+    # df = pd.read_csv('/home/santhosh-omni/data/data-v7.csv')
     # Specify Enrollment Type
     # df["rep_code"] = df["rep_code"].astype(int)
     # df.loc[(df['rep_code'] > 0), ['Enrollment Type']] = 'REP'
