@@ -21,11 +21,11 @@ CORS(app)
 def generate_report():
     # Sql Connection
     #Staging
-    # sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Pre-prod
     # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Production
-    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    # sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     dbConnection = sqlEngine.connect()
     queryForCount = 'Select u.id as count From t_user u Order By u.id DESC LIMIT 1'
     dfCount = pd.read_sql(queryForCount, dbConnection);
@@ -451,7 +451,9 @@ def generate_report_v2():
                     'u.created_at as "Registration Date", ' \
                     'if(u.is_email_verified = 1, "YES", "NO") as "isEmailVerified", ' \
                     'if(u.is_dnd = 1, "YES", "NO") as "isDND", ' \
-                    'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified" ' \
+                    'if(u.registration_status = 2, "YES", "NO") as "isMCIVerified",' \
+                    'if(u.uninstalled = 1, "YES",if(u.device_token is not null, "NO", "N/A")) as isUninstalled, ' \
+                    'if(u.unsubscribed = 1, "YES",if(u.unsubscribed is not null, "NO", "N/A")) as isUnsubscribed ' \
                     'from t_user u ' \
                     'Join m_region r On u.registration_region_id = r.id ' \
                     'Join t_user_role ur On ur.user_id = u.id ' \
@@ -625,7 +627,7 @@ def generate_report_v2():
     print("####################End Activity Level ######################")
     #TODO: remove
     df["Activity Level"].fillna("MEDIUM", inplace=True)
-    df.to_csv('/home/santhosh-omni/data/data-v7.csv', index=False)
+    df.to_csv('/home/santhosh-omni/data/data-v81-stg.csv', index=False)
     return "Done"
 
 
@@ -639,7 +641,8 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/prod/data-prod.csv')
+    df = pd.read_csv('/home/santhosh-omni/data/data-v81.csv')
+    # df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/prod/data-prod.csv')
     # df = pd.read_csv('/home/santhosh-omni/data/data-v7.csv')
     # Specify Enrollment Type
     # df["rep_code"] = df["rep_code"].astype(int)
@@ -648,6 +651,8 @@ def user_engagement():
     # df.to_csv('/home/santhosh-omni/data/data-v5.csv', index=False)
     arr = df["User ID"].to_numpy()
     arr = list(set(arr))
+    for col in df.columns:
+        print(col)
     print("This size is", len(arr))
     if 'enrollmentType' in request_data:
         dfTempEnrollment = None
@@ -688,6 +693,37 @@ def user_engagement():
             res = result[(result['Activity Level'] == e)]
             dfTempActivity = pd.concat([dfTempActivity, res])
         result = dfTempActivity
+
+    if 'marketData' in request_data:
+        dfTempMarket = None
+        if result is None:
+            result = df
+        # Mail Unsubscribed
+        # if "UNSUBSCRIBED" in request_data['marketData']:
+        #     res = result[(result['isUnsubscribed'] == "YES")]
+        #     dfTempMarket = pd.concat([dfTempMarket, res])
+        # # Not installed
+        # if "NOT_INSTALLED" in request_data['marketData']:
+        #     res = result[(result['isUninstalled'] == "N/A")]
+        #     dfTempMarket = pd.concat([dfTempMarket, res])
+        # # Uninstalled
+        # if "UNINSTALLED" in request_data['marketData']:
+        #     res = result[(result['isUninstalled'] == "YES")]
+        #     dfTempMarket = pd.concat([dfTempMarket, res])
+        for e in request_data['marketData']:
+            # Mail Unsubscribed
+            if e =="UNSUBSCRIBED":
+                res = result[(result['isUnsubscribed'] == "YES")]
+                dfTempMarket = pd.concat([dfTempMarket, res])
+            # Not installed
+            if e == "NOT_INSTALLED":
+                res = result[(result['isUninstalled'] == "N/A")]
+                dfTempMarket = pd.concat([dfTempMarket, res])
+            # Uninstalled
+            if e == "UNINSTALLED":
+                res = result[(result['isUninstalled'] == "YES")]
+                dfTempMarket = pd.concat([dfTempMarket, res])
+        result = dfTempMarket
 
     if result is None:
         return None
