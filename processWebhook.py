@@ -641,8 +641,8 @@ def user_engagement():
     print(format(request_data))
     print("**************************************")
     result = None
-    df = pd.read_csv('/home/santhosh-omni/data/data-v81.csv')
-    # df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/prod/data-prod.csv')
+    # df = pd.read_csv('/home/santhosh-omni/data/data-v81.csv')
+    df = pd.read_csv('https://s3.ap-southeast-1.amazonaws.com/omnicuris.assets/marketing/data/stg/data.csv')
     # df = pd.read_csv('/home/santhosh-omni/data/data-v7.csv')
     # Specify Enrollment Type
     # df["rep_code"] = df["rep_code"].astype(int)
@@ -733,7 +733,7 @@ def user_engagement():
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean', 'rep_code'], axis = 1)
-    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Engagement Level','Activity Level', 'Registration Date','Number Of Visits', 'Last Activity Date','Enrollment Type', 'isEmailVerified', 'isDND','isMCIVerified' ]]
+    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Engagement Level','Activity Level', 'Registration Date','Number Of Visits', 'Last Activity Date','Enrollment Type', 'isEmailVerified', 'isDND','isMCIVerified', 'isUninstalled', 'isUnsubscribed' ]]
     # return result.to_csv(index=False)
     return result.to_csv(index=False)
 
