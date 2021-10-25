@@ -627,7 +627,7 @@ def generate_report_v2():
     print("####################End Activity Level ######################")
     #TODO: remove
     df["Activity Level"].fillna("MEDIUM", inplace=True)
-    df.to_csv('/home/santhosh-omni/data/data-v81-stg.csv', index=False)
+    df.to_csv('/home/santhosh-omni/data/data-v91-stg.csv', index=False)
     return "Done"
 
 
@@ -718,6 +718,8 @@ def user_engagement():
             # Not installed
             if e == "NOT_INSTALLED":
                 res = result[(result['isUninstalled'] == "N/A")]
+                dfTempMarket = pd.concat([dfTempMarket, res])
+                res = result[(result['isUninstalled'].isna())]
                 dfTempMarket = pd.concat([dfTempMarket, res])
             # Uninstalled
             if e == "UNINSTALLED":
