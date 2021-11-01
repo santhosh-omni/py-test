@@ -21,11 +21,11 @@ CORS(app)
 def generate_report():
     # Sql Connection
     #Staging
-    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    # sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Pre-prod
     # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Production
-    # sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     dbConnection = sqlEngine.connect()
     queryForCount = 'Select u.id as count From t_user u Order By u.id DESC LIMIT 1'
     dfCount = pd.read_sql(queryForCount, dbConnection);
@@ -719,6 +719,8 @@ def user_engagement():
             if e == "NOT_INSTALLED":
                 res = result[(result['isUninstalled'] == "N/A")]
                 dfTempMarket = pd.concat([dfTempMarket, res])
+                res = result[(result['isUninstalled'].isna())]
+                dfTempMarket = pd.concat([dfTempMarket, res])
             # Uninstalled
             if e == "UNINSTALLED":
                 res = result[(result['isUninstalled'] == "YES")]
@@ -733,7 +735,7 @@ def user_engagement():
     # response = Flask.jsonify({'data': result.to_csv()})
     # response.headers.add("Access-Control-Allow-Origin", "*")
     # result = result.drop(['status', 'speciality_id', 'tracker_id', 'progress_mean', 'progress', 'mean', 'rep_code'], axis = 1)
-    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Engagement Level','Activity Level', 'Registration Date','Number Of Visits', 'Last Activity Date','Enrollment Type', 'isEmailVerified', 'isDND','isMCIVerified' ]]
+    result = result[['User ID', 'First Name', 'Last Name', 'Email', 'Contact No.', 'Location/Region', 'Speciality Of Interest', 'Engagement Level','Activity Level', 'Registration Date','Number Of Visits', 'Last Activity Date','Enrollment Type', 'isEmailVerified', 'isDND','isMCIVerified', 'isUninstalled', 'isUnsubscribed' ]]
     # return result.to_csv(index=False)
     return result.to_csv(index=False)
 
