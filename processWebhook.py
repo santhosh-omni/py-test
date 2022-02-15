@@ -739,3 +739,144 @@ def user_engagement():
     # return result.to_csv(index=False)
     return result.to_csv(index=False)
 
+@app.route('/analytics/dashboard', methods=['POST'])
+# @cross_origin()
+def analytics():
+    request_data = request.json
+    # data = json.loads(request_data)
+    print("**************************************")
+    print(request)
+    print(format(request_data))
+    print("**************************************")
+    result = None
+    sqlEngine = create_engine(
+        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        pool_recycle=36000)
+    dbConnection = sqlEngine.connect()
+
+    query = ''
+    query += 'SELECT ump.user_id,u.current_device,u.device_token,u.uninstalled,ump.created_at, ' \
+             'r.name as region ' \
+             'FROM t_user_medshot_project ump ' \
+             'Join t_user u On u.id = ump.user_id ' \
+             'Left Join m_region r On u.registration_region_id = r.id  ' \
+             'Where ump.is_archived = 0 ' \
+             'And u.is_archived = 0 '
+
+    if 'range_start' in request_data:
+        query+='And ump.created_at between \"'+request_data['range_start']+'\" And \"'+request_data['range_end'] +'\" '
+    elif 'interval_months' in request_data:
+        query += 'And ump.created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_months']) + ' Month) '
+
+    query+='group by ump.user_id'
+
+    # print (query)
+
+
+    dfMedshotUser = pd.read_sql(query, dbConnection)
+
+    # print(dfMedshotUser)
+
+    ## Total Users
+    arr = dfMedshotUser["user_id"].to_numpy()
+    arr = list(set(arr))
+    totUser = len(arr)
+
+    ## Total Web User
+    totWeb = dfMedshotUser["current_device"].isnull().sum()
+    # print(totWeb)
+
+    ##Total App Users
+    ## Total Android
+    totMobAnd = len(dfMedshotUser[dfMedshotUser['current_device'].str.contains("ANDROID", regex=False, na=False)].index)
+    ## Total IOS
+    totMobIos = len(dfMedshotUser[dfMedshotUser['current_device'].str.contains("IOS", regex=False, na=False)].index)
+    ## Total Mobile
+    totApp = totMobAnd + totMobIos
+    print(totApp)
+    ## Total App Downloaded
+    appDownload = dfMedshotUser["device_token"].notnull().sum()
+
+
+    string_ints = [str(int) for int in arr]
+
+    # queryActiveUser = ''
+    # # 'where user_id in ('+(",".join(string_ints)) +') ' \
+    # queryActiveUser += 'SELECT * FROM t_user_article_tracker ' \
+    #                    'where is_archived = 0 '
+    # if 'range_start' in request_data:
+    #     query+='And created_at between \"'+request_data['range_start']+'\" And \"'+request_data['range_end'] +'\" '
+    # elif 'interval_months' in request_data:
+    #     query += 'And created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_months']) + ' Month) '
+    #
+    # queryActiveUser += 'group by user_id'
+    # # print(queryActiveUser)
+    #
+    # dfActiveUser = pd.read_sql(queryActiveUser, dbConnection)
+    # # print(dfActiveUser)
+
+    querySpeciality = ''
+    querySpeciality += 'SELECT uat.*,s.id as speciality_id,s.name as speciality_name, r.name as region FROM omnicuris.t_user_article_tracker uat ' \
+                       'Join t_article_speciality asp On asp.article_id = uat.article_id ' \
+                       'Join m_speciality s On s.id = asp.speciality_id ' \
+                       'Join t_user u On uat.user_id = u.id ' \
+                       'Left Join m_region r On u.registration_region_id = r.id ' \
+                       'where uat.is_archived = 0 ' \
+                       'And s.is_archived = 0 '
+    if 'range_start' in request_data:
+        querySpeciality += 'And uat.created_at between \"' + request_data['range_start'] + '\" And \"' + request_data['range_end'] + '\" '
+    elif 'interval_months' in request_data:
+        querySpeciality += 'And uat.created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_months']) + ' Month)  '
+
+    # print(querySpeciality)
+
+    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    # print(dfSpeciality)
+
+    ## Top Speciality
+    # dfTop = dfSpeciality.groupby(['speciality_name'])['name'].describe()[['count']]
+    dfTop = dfSpeciality.groupby('speciality_name').size().sort_values(ascending=False)
+    # print(dfTop)
+    # print (dfTop.to_json(orient ='columns'))
+    sepcInfo = []
+    # for x in dfTop.to_json(orient ='columns'):
+    dct = json.loads(dfTop.to_json(orient ='columns'))
+    for key in dct.keys():
+        sepcInfo.append({"name": key, "count": dct[key]})
+    # print(sepcInfo)
+
+    ## State wise
+    dfState = dfSpeciality.groupby('region').size().sort_values(ascending=False)
+    # print(dfState)
+    # print(dfState.to_json(orient='columns'))
+    stateInfo = []
+    # for x in dfTop.to_json(orient ='columns'):
+    dct = json.loads(dfState.to_json(orient='columns'))
+    for key in dct.keys():
+        stateInfo.append({"x": key, "y": dct[key]})
+    # print(sepcInfo)
+
+    ## Active Users
+    activeUser = len(dfSpeciality['user_id'].unique())
+
+    x = {
+        "user_info":{
+            "total":{
+                "user": int(totUser),
+                "web": int(totWeb),
+                "app": {
+                    "tot": int(totApp),
+                    "android": int(totMobAnd),
+                    "ios": int(totMobIos)
+                },
+            },
+            "app_downloaded": int(appDownload),
+            "active_user": int(activeUser),
+        },
+        "speciality": {
+            "info": sepcInfo,
+            "state_wise": stateInfo
+        }
+    }
+    return x
+
