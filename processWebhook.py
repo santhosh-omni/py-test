@@ -636,7 +636,7 @@ def generate_report_v2():
 def user_engagement():
     request_data = request.json
     # data = json.loads(request_data)
-    print("**************************************")
+    print("*************************************")
     print(request)
     print(format(request_data))
     print("**************************************")
