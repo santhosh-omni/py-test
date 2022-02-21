@@ -767,6 +767,8 @@ def analytics():
         query+='And ump.created_at between \"'+request_data['range_start']+'\" And \"'+request_data['range_end'] +'\" '
     elif 'interval_months' in request_data:
         query += 'And ump.created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_months']) + ' Month) '
+    elif 'interval_days' in request_data:
+        query += 'And ump.created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_days']) + ' Day) '
 
     query+='group by ump.user_id'
 
@@ -827,6 +829,8 @@ def analytics():
         querySpeciality += 'And uat.created_at between \"' + request_data['range_start'] + '\" And \"' + request_data['range_end'] + '\" '
     elif 'interval_months' in request_data:
         querySpeciality += 'And uat.created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_months']) + ' Month)  '
+    elif 'interval_days' in request_data:
+        querySpeciality += 'And uat.created_at >= DATE_ADD(NOW(), INTERVAL -' + str(request_data['interval_days']) + ' Day)  '
 
     # print(querySpeciality)
 
