@@ -902,6 +902,38 @@ def analyticsActive():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
+    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
+                      'Where is_archived = false ' \
+                      'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -1 Day) as Date) '
+    if 'range_start' in request_data:
+        queryActiveUser += 'And created_at Between cast("' + str(
+            request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
+            request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
+    elif 'interval_days' in request_data:
+        queryActiveUser += 'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -' + str(
+            request_data['interval_days']) + ' Day) as Date) '
+    dfActiveAllUser = pd.read_sql(queryActiveUser, dbConnection)
+    totalActiveData = {
+        "active": int(dfActiveAllUser["count"])
+    }
+
+    return totalActiveData
+
+@app.route('/analytics/v2/dashboard/reg', methods=['POST'])
+# @cross_origin()
+def analyticsActiveReg():
+    request_data = request.json
+    # data = json.loads(request_data)
+    print("**************************************")
+    print(request)
+    print(format(request_data))
+    print("**************************************")
+    result = None
+    sqlEngine = create_engine(
+        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        pool_recycle=36000)
+    dbConnection = sqlEngine.connect()
+
     queryActiveUser = 'Select uat.user_id, uat.created_at, IF(uat.user_id IS NULL, FALSE, TRUE) as organic, ' \
                       'u.current_device, u.device_token, u.uninstalled ' \
                       'From t_user_activity_tracker uat ' \
