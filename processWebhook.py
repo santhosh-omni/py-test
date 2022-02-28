@@ -903,8 +903,7 @@ def analyticsActive():
     dbConnection = sqlEngine.connect()
 
     queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
-                      'Where is_archived = false ' \
-                      'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -1 Day) as Date) '
+                      'Where is_archived = false '
     if 'range_start' in request_data:
         queryActiveUser += 'And created_at Between cast("' + str(
             request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
