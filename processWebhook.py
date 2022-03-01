@@ -903,7 +903,8 @@ def analyticsActive():
     dbConnection = sqlEngine.connect()
 
     queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
-                      'Where is_archived = false '
+                      'Where is_archived = false ' \
+                      'And user_id Not In (Select distinct(user_id) From t_user_medshot_project) '
     if 'range_start' in request_data:
         queryActiveUser += 'And created_at Between cast("' + str(
             request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
@@ -912,8 +913,21 @@ def analyticsActive():
         queryActiveUser += 'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -' + str(
             request_data['interval_days']) + ' Day) as Date) '
     dfActiveAllUser = pd.read_sql(queryActiveUser, dbConnection)
+
+    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
+                      'Where is_archived = false ' \
+                      'And user_id In (Select distinct(user_id) From t_user_medshot_project) '
+    if 'range_start' in request_data:
+        queryActiveUser += 'And created_at Between cast("' + str(
+            request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
+            request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
+    elif 'interval_days' in request_data:
+        queryActiveUser += 'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -' + str(
+            request_data['interval_days']) + ' Day) as Date) '
+    dfActiveInUser = pd.read_sql(queryActiveUser, dbConnection)
     totalActiveData = {
-        "active": int(dfActiveAllUser["count"])
+        "organic": int(dfActiveAllUser["count"]),
+        "in_organic": int(dfActiveInUser["count"])
     }
 
     return totalActiveData
@@ -933,40 +947,34 @@ def analyticsActiveReg():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    queryActiveUser = 'Select uat.user_id, uat.created_at, IF(uat.user_id IS NULL, FALSE, TRUE) as organic, ' \
-                      'u.current_device, u.device_token, u.uninstalled ' \
-                      'From t_user_activity_tracker uat ' \
-                      'Join t_user u On u.id = uat.user_id ' \
-                      'Left Join t_user_medshot_project ump On ump.user_id = uat.user_id ' \
-                      'Where uat.is_archived = false ' \
-                      'And ump.is_archived = false '
+    queryInOrganicUser = 'Select * From t_user_medshot_project ' \
+                         'Where is_archived = false '
     if 'range_start' in request_data:
-        queryActiveUser += 'Group By uat.user_id Having if( count(uat.user_id > 1) And uat.created_at Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date), uat.user_id, null)'
+        queryInOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at Between cast("' + str(
+            request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
+            request_data['range_end']) + '", INTERVAL 1 Day) as Date), user_id, null)'
     elif 'interval_days' in request_data:
-        queryActiveUser += 'Group By uat.user_id Having if( count(uat.user_id > 1) And uat.created_at < cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) , null, uat.user_id)'
+        queryInOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at < cast(DATE_ADD(NOW(), INTERVAL -' + str(
+            request_data['interval_days']) + ' Day) as Date) , null, user_id)'
+    dfInOrganicUser = pd.read_sql(queryInOrganicUser, dbConnection)
+    arr = dfInOrganicUser["user_id"].to_numpy()
+    arr = list(set(arr))
+    totIOUser = len(arr)
+    string_ints = [str(int) for int in arr]
 
-    dfActiveUser = pd.read_sql(queryActiveUser, dbConnection)
+    queryOrganicUser = 'SELECT Count(*) as count From (SELECT * FROM t_user_speciality_of_interest ' \
+                      'Where type = "MEDSHOTS" And is_archived = false ' \
+                       'And user_id not in ('+(",".join(string_ints)) +') '
+    if 'range_start' in request_data:
+        queryOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date), user_id, null)'
+    elif 'interval_days' in request_data:
+        queryOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at < cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) , null, user_id)'
+    queryOrganicUser += ') as k'
+    dfOrganicUser = pd.read_sql(queryOrganicUser, dbConnection)
 
     totalActiveData = {
-        "organic": {
-            "web": len(dfActiveUser[dfActiveUser['organic'] == True & dfActiveUser["current_device"].isnull()].index),
-            "mobile":  {
-                "android": len(dfActiveUser[dfActiveUser['organic'] == True & dfActiveUser['current_device'].str.contains("ANDROID", regex=False, na=False)].index),
-                "ios": len(dfActiveUser[dfActiveUser['organic'] == True & dfActiveUser['current_device'].str.contains("IOS", regex=False, na=False)].index),
-            }
-        },
-        "in_organic": {
-            "web": len(dfActiveUser[dfActiveUser['organic'] == False & dfActiveUser["current_device"].isnull()].index),
-            "mobile": {
-                "android": len(dfActiveUser[
-                                   dfActiveUser['organic'] == False & dfActiveUser['current_device'].str.contains(
-                                       "ANDROID", regex=False, na=False)].index),
-                "ios": len(dfActiveUser[
-                               dfActiveUser['organic'] == False & dfActiveUser['current_device'].str.contains("IOS",
-                                                                                                             regex=False,
-                                                                                                             na=False)].index),
-            }
-        }
+        "organic": int(dfOrganicUser["count"]),
+        "in_organic": totIOUser
     }
 
     return totalActiveData
@@ -981,47 +989,124 @@ def analyticsTotal():
     dbConnection = sqlEngine.connect()
 
     queryAllUser = ''
-    queryAllUser += 'Select u.id, u.current_device, u.device_token, u.uninstalled ' \
-                    'From t_user u ' \
-                    'Join t_user_activity_tracker uat On uat.user_id = u.id ' \
+    queryAllUser += 'Select u.id, u.current_device From t_user u ' \
                     'Join t_user_speciality_of_interest soi On soi.user_id = u.id ' \
-                    'Where u.is_archived = false ' \
-                    'Group By uat.user_id '
+                    'Where soi.type = "MEDSHOTS" ' \
+                    'And soi.is_archived = false ' \
+                    'And u.id in (Select user_id From t_user_medshot_project) '
 
-    # dfAllUser = pd.read_sql(queryAllUser, dbConnection)
+    dfAllUser = pd.read_sql(queryAllUser, dbConnection)
 
     ## Total Users
     # arr = dfAllUser["user_id"].to_numpy()
     # arr = list(set(arr))
+    totUserO = len(dfAllUser["id"].to_numpy())
+    totUserO = len(dfAllUser["id"].to_numpy())
+    ##Total App Users
+    ## Total Android
+    totMobAndO = len(dfAllUser[dfAllUser['current_device'].str.contains("ANDROID", regex=False, na=False)].index)
+    ## Total IOS
+    totMobIosO = len(dfAllUser[dfAllUser['current_device'].str.contains("IOS", regex=False, na=False)].index)
 
-    ## Total App Downloaded
-    # appDownload = dfMedshotUser["device_token"].notnull().sum()
+    queryAllUser = ''
+    queryAllUser += 'Select u.id, u.current_device From t_user u ' \
+                    'Join t_user_speciality_of_interest soi On soi.user_id = u.id ' \
+                    'Where soi.type = "MEDSHOTS" ' \
+                    'And soi.is_archived = false ' \
+                    'And u.id not in (Select user_id From t_user_medshot_project) '
 
-    # string_ints = [str(int) for int in arr]
+    dfAllUser = pd.read_sql(queryAllUser, dbConnection)
+
+    ## Total Users
+    # arr = dfAllUser["user_id"].to_numpy()
+    # arr = list(set(arr))
+    totUserIn = len(dfAllUser["id"].to_numpy())
+    ##Total App Users
+    ## Total Android
+    totMobAndIn = len(
+        dfAllUser[dfAllUser['current_device'].str.contains("ANDROID", regex=False, na=False)].index)
+    ## Total IOS
+    totMobIosIn = len(dfAllUser[dfAllUser['current_device'].str.contains("IOS", regex=False, na=False)].index)
+
 
     x = {
-        "total": {
-            "user": 105392,
-            "web": 11787,
-            "mobile": {
-                "android": 79390,
-                "ios": 14215
+        "organic": {
+            "app": {
+                "android": totMobAndO,
+                "ios": totMobIosO
             },
+            "web": totUserO - (totMobAndO + totMobIosO),
+            "tot": totUserO,
         },
+        "in_organic": {
+            "app": {
+                "android": totMobAndIn,
+                "ios": totMobIosIn
+            },
+            "web": totUserIn - (totMobAndIn + totMobIosIn),
+            "tot": totUserIn,
+        }
     }
 
-    # x = {
-    #     "total":{
-    #         "user": len(dfAllUser.index),
-    #         "web": int(dfMedshotUser["current_device"].isnull().sum()),
-    #         "mobile": {
-    #             "android": len(dfMedshotUser[dfMedshotUser['current_device'].str.contains("ANDROID", regex=False, na=False)].index),
-    #             "ios": len(dfMedshotUser[dfMedshotUser['current_device'].str.contains("IOS", regex=False, na=False)].index)
-    #         },
-    #     },
-    # }
     return x
 
+@app.route('/analytics/v2/dashboard/spec', methods=['POST'])
+# @cross_origin()
+def analyticsTotSpec():
+    request_data = request.json
+    # data = json.loads(request_data)
+    print("**************************************")
+    print(request)
+    print(format(request_data))
+    print("**************************************")
+    result = None
+    sqlEngine = create_engine(
+        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        pool_recycle=36000)
+    dbConnection = sqlEngine.connect()
+
+    querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
+                       'Join m_speciality s On s.id = soi.speciality_id ' \
+                       'Where soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
+    # print(querySpeciality)
+
+    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    dfTop = dfSpeciality.sort_values(['count'],ascending=False)
+    specInfoTot = []
+    for index, row in dfTop.iterrows():
+        specInfoTot.append({"name": row["name"], "count": int(row["count"])})
+
+    ######
+    querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
+                      'Join m_speciality s On s.id = soi.speciality_id ' \
+                      'Where soi.user_id not in (select user_id From t_user_medshot_project) ' \
+                      'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
+    # print(querySpeciality)
+
+    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    dfTop = dfSpeciality.sort_values(['count'], ascending=False)
+    specInfoO = []
+    for index, row in dfTop.iterrows():
+        specInfoO.append({"name": row["name"], "count": int(row["count"])})
+
+
+    querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
+                      'Join m_speciality s On s.id = soi.speciality_id ' \
+                      'Where soi.user_id not in (select user_id From t_user_medshot_project) ' \
+                      'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
+
+    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    dfTop = dfSpeciality.sort_values(['count'], ascending=False)
+    specInfoIn = []
+    for index, row in dfTop.iterrows():
+        specInfoIn.append({"name": row["name"], "count": int(row["count"])})
+    totalActiveData = {
+        "total": specInfoTot,
+        "organic": specInfoO,
+        "in-organic": specInfoIn
+    }
+
+    return totalActiveData
 
 
 @app.route('/analytics/v2/dashboard', methods=['POST'])
