@@ -1103,7 +1103,7 @@ def analyticsTotSpec():
     totalActiveData = {
         "total": specInfoTot,
         "organic": specInfoO,
-        "in-organic": specInfoIn
+        "in_organic": specInfoIn
     }
 
     return totalActiveData
