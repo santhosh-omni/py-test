@@ -910,9 +910,10 @@ def analyticsActive():
             request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
             request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
     elif 'interval_days' in request_data:
-        queryActiveUser += 'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -' + str(
+        queryActiveUser += 'And cast(created_at as Date) >= cast(DATE_ADD(NOW(), INTERVAL -' + str(
             request_data['interval_days']) + ' Day) as Date) '
     dfActiveAllUser = pd.read_sql(queryActiveUser, dbConnection)
+    print(queryActiveUser)
 
     queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
                       'Where is_archived = false ' \
@@ -922,8 +923,9 @@ def analyticsActive():
             request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
             request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
     elif 'interval_days' in request_data:
-        queryActiveUser += 'And cast(created_at as Date) = cast(DATE_ADD(NOW(), INTERVAL -' + str(
+        queryActiveUser += 'And cast(created_at as Date) >= cast(DATE_ADD(NOW(), INTERVAL -' + str(
             request_data['interval_days']) + ' Day) as Date) '
+        print(queryActiveUser)
     dfActiveInUser = pd.read_sql(queryActiveUser, dbConnection)
     totalActiveData = {
         "organic": int(dfActiveAllUser["count"]),
