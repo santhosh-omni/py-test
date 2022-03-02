@@ -1092,7 +1092,7 @@ def analyticsTotSpec():
 
     querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
                       'Join m_speciality s On s.id = soi.speciality_id ' \
-                      'Where soi.user_id not in (select user_id From t_user_medshot_project) ' \
+                      'Where soi.user_id in (select user_id From t_user_medshot_project) ' \
                       'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
 
     dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
