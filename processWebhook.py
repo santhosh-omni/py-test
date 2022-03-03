@@ -1067,7 +1067,7 @@ def analyticsTotSpec():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    querySpeciality = 'Select s.name,Count(distinct(soi.id)) as count From t_user_speciality_of_interest soi ' \
+    querySpeciality = 'Select s.name,Count(distinct(soi.user_id)) as count From t_user_speciality_of_interest soi ' \
                        'Join m_speciality s On s.id = soi.speciality_id ' \
                        'Where soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
     # print(querySpeciality)
