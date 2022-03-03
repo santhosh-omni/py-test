@@ -904,6 +904,7 @@ def analyticsActive():
 
     queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
                       'Where is_archived = false ' \
+                      'widget_type = "Article" ' \
                       'And user_id Not In (Select distinct(user_id) From t_user_medshot_project) '
     if 'range_start' in request_data:
         queryActiveUser += 'And created_at Between cast("' + str(
@@ -917,6 +918,7 @@ def analyticsActive():
 
     queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
                       'Where is_archived = false ' \
+                      'widget_type = "Article" ' \
                       'And user_id In (Select distinct(user_id) From t_user_medshot_project) '
     if 'range_start' in request_data:
         queryActiveUser += 'And created_at Between cast("' + str(
