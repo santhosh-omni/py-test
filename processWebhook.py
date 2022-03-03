@@ -1011,7 +1011,7 @@ def analyticsTotal():
     totMobIosO = len(dfAllUser[dfAllUser['current_device'].str.contains("IOS", regex=False, na=False)].index)
 
     queryAllUser = ''
-    queryAllUser += 'Select u.id, u.current_device From t_user u ' \
+    queryAllUser += 'Select distinct(u.id), u.current_device From t_user u ' \
                     'Join t_user_speciality_of_interest soi On soi.user_id = u.id ' \
                     'Where soi.type = "MEDSHOTS" ' \
                     'And soi.is_archived = false ' \
