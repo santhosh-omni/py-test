@@ -1067,7 +1067,7 @@ def analyticsTotSpec():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
+    querySpeciality = 'Select s.name,Count(distinct(soi.id)) as count From t_user_speciality_of_interest soi ' \
                        'Join m_speciality s On s.id = soi.speciality_id ' \
                        'Where soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
     # print(querySpeciality)
@@ -1079,7 +1079,7 @@ def analyticsTotSpec():
         specInfoTot.append({"name": row["name"], "count": int(row["count"])})
 
     ######
-    querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
+    querySpeciality = 'Select s.name,Count(distinct(soi.user_id)) as count From t_user_speciality_of_interest soi ' \
                       'Join m_speciality s On s.id = soi.speciality_id ' \
                       'Where soi.user_id not in (select user_id From t_user_medshot_project) ' \
                       'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
@@ -1092,7 +1092,7 @@ def analyticsTotSpec():
         specInfoO.append({"name": row["name"], "count": int(row["count"])})
 
 
-    querySpeciality = 'Select s.name,Count(soi.id) as count From t_user_speciality_of_interest soi ' \
+    querySpeciality = 'Select s.name,Count(distinct(soi.user_id)) as count From t_user_speciality_of_interest soi ' \
                       'Join m_speciality s On s.id = soi.speciality_id ' \
                       'Where soi.user_id in (select user_id From t_user_medshot_project) ' \
                       'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
