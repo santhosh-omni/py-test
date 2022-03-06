@@ -902,9 +902,8 @@ def analyticsActive():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
+    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_article_tracker' \
                       'Where is_archived = false ' \
-                      'widget_type = "Article" ' \
                       'And user_id Not In (Select distinct(user_id) From t_user_medshot_project) '
     if 'range_start' in request_data:
         queryActiveUser += 'And created_at Between cast("' + str(
@@ -916,9 +915,8 @@ def analyticsActive():
     dfActiveAllUser = pd.read_sql(queryActiveUser, dbConnection)
     print(queryActiveUser)
 
-    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_activity_tracker ' \
+    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_article_tracker ' \
                       'Where is_archived = false ' \
-                      'widget_type = "Article" ' \
                       'And user_id In (Select distinct(user_id) From t_user_medshot_project) '
     if 'range_start' in request_data:
         queryActiveUser += 'And created_at Between cast("' + str(
@@ -966,13 +964,15 @@ def analyticsActiveReg():
     totIOUser = len(arr)
     string_ints = [str(int) for int in arr]
 
-    queryOrganicUser = 'SELECT Count(*) as count From (SELECT * FROM t_user_speciality_of_interest ' \
-                      'Where type = "MEDSHOTS" And is_archived = false ' \
-                       'And user_id not in ('+(",".join(string_ints)) +') '
+    queryOrganicUser = 'SELECT Count(*) as count From (SELECT user_id, MIN(created_at) dat ' \
+                       'FROM t_user_article_tracker ' \
+                       'Where is_archived = false ' \
+                       'And user_id not in (' + (",".join(string_ints)) + ') ' \
+                                                                          'GROUP BY user_id HAVING '
     if 'range_start' in request_data:
-        queryOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date), user_id, null)'
+        queryOrganicUser += 'dat Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date) '
     elif 'interval_days' in request_data:
-        queryOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at < cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) , null, user_id)'
+        queryOrganicUser += 'dat < cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) '
     queryOrganicUser += ') as k'
     dfOrganicUser = pd.read_sql(queryOrganicUser, dbConnection)
 
@@ -1069,9 +1069,16 @@ def analyticsTotSpec():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    querySpeciality = 'Select s.name,Count(distinct(soi.user_id)) as count From t_user_speciality_of_interest soi ' \
-                       'Join m_speciality s On s.id = soi.speciality_id ' \
-                       'Where soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
+    querySpeciality = 'SELECT ' \
+                      'ms.`name` name, ' \
+                      'COUNT(DISTINCT tusi.user_id) count ' \
+                      'FROM ' \
+                      'm_speciality ms ' \
+                      'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
+                      'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
+                      'WHERE ' \
+                      'ms.enable_feed = 1 ' \
+                      'GROUP BY ms.id'
     # print(querySpeciality)
 
     dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
@@ -1081,10 +1088,17 @@ def analyticsTotSpec():
         specInfoTot.append({"name": row["name"], "count": int(row["count"])})
 
     ######
-    querySpeciality = 'Select s.name,Count(distinct(soi.user_id)) as count From t_user_speciality_of_interest soi ' \
-                      'Join m_speciality s On s.id = soi.speciality_id ' \
-                      'Where soi.user_id not in (select user_id From t_user_medshot_project) ' \
-                      'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
+    querySpeciality = 'SELECT ' \
+                      'ms.`name` name, ' \
+                      'COUNT(DISTINCT tusi.user_id) count ' \
+                      'FROM ' \
+                      'm_speciality ms ' \
+                      'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
+                      'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
+                      'WHERE ' \
+                      'ms.enable_feed = 1 ' \
+                      'And tusi.user_id NOT IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
+                      'GROUP BY ms.id'
     # print(querySpeciality)
 
     dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
@@ -1094,10 +1108,17 @@ def analyticsTotSpec():
         specInfoO.append({"name": row["name"], "count": int(row["count"])})
 
 
-    querySpeciality = 'Select s.name,Count(distinct(soi.user_id)) as count From t_user_speciality_of_interest soi ' \
-                      'Join m_speciality s On s.id = soi.speciality_id ' \
-                      'Where soi.user_id in (select user_id From t_user_medshot_project) ' \
-                      'And soi.type = "MEDSHOTS" And soi.is_archived = false group by soi.speciality_id '
+    querySpeciality = 'SELECT ' \
+                      'ms.`name` name, ' \
+                      'COUNT(DISTINCT tusi.user_id) count ' \
+                      'FROM ' \
+                      'm_speciality ms ' \
+                      'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
+                      'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
+                      'WHERE ' \
+                      'ms.enable_feed = 1 ' \
+                      'And tusi.user_id IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
+                      'GROUP BY ms.id'
 
     dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
     dfTop = dfSpeciality.sort_values(['count'], ascending=False)
