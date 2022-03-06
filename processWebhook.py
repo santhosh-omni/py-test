@@ -902,7 +902,7 @@ def analyticsActive():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_article_tracker' \
+    queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_article_tracker ' \
                       'Where is_archived = false ' \
                       'And user_id Not In (Select distinct(user_id) From t_user_medshot_project) '
     if 'range_start' in request_data:
@@ -913,7 +913,6 @@ def analyticsActive():
         queryActiveUser += 'And cast(created_at as Date) >= cast(DATE_ADD(NOW(), INTERVAL -' + str(
             request_data['interval_days']) + ' Day) as Date) '
     dfActiveAllUser = pd.read_sql(queryActiveUser, dbConnection)
-    print(queryActiveUser)
 
     queryActiveUser = 'Select count(distinct(user_id)) as count From t_user_article_tracker ' \
                       'Where is_archived = false ' \
