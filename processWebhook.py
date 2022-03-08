@@ -948,25 +948,22 @@ def analyticsActiveReg():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    queryInOrganicUser = 'Select * From t_user_medshot_project ' \
+    queryInOrganicUser = 'Select count(*) as count From (Select user_id, min(created_at) dat From t_user_medshot_project ' \
                          'Where is_archived = false '
     if 'range_start' in request_data:
-        queryInOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at Between cast("' + str(
+        queryInOrganicUser += 'Group By user_id Having dat Between cast("' + str(
             request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
-            request_data['range_end']) + '", INTERVAL 1 Day) as Date), user_id, null)'
+            request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
     elif 'interval_days' in request_data:
-        queryInOrganicUser += 'Group By user_id Having if( count(user_id > 1) And created_at < cast(DATE_ADD(NOW(), INTERVAL -' + str(
-            request_data['interval_days']) + ' Day) as Date) , null, user_id)'
+        queryInOrganicUser += 'Group By user_id Having dat > cast(DATE_ADD(NOW(), INTERVAL -' + str(
+            request_data['interval_days']) + ' Day) as Date) '
+    queryInOrganicUser += ' ) as k'
     dfInOrganicUser = pd.read_sql(queryInOrganicUser, dbConnection)
-    arr = dfInOrganicUser["user_id"].to_numpy()
-    arr = list(set(arr))
-    totIOUser = len(arr)
-    string_ints = [str(int) for int in arr]
 
     queryOrganicUser = 'SELECT Count(*) as count From (SELECT user_id, MIN(created_at) dat ' \
                        'FROM t_user_article_tracker ' \
                        'Where is_archived = false ' \
-                       'And user_id not in (' + (",".join(string_ints)) + ') ' \
+                       'And user_id not in (Select distinct(user_id) From t_user_medshot_project where is_archived = false) ' \
                                                                           'GROUP BY user_id HAVING '
     if 'range_start' in request_data:
         queryOrganicUser += 'dat Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date) '
@@ -977,7 +974,7 @@ def analyticsActiveReg():
 
     totalActiveData = {
         "organic": int(dfOrganicUser["count"]),
-        "in_organic": totIOUser
+        "in_organic": int(dfInOrganicUser["count"]),
     }
 
     return totalActiveData
