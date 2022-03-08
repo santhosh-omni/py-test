@@ -971,7 +971,7 @@ def analyticsActiveReg():
     if 'range_start' in request_data:
         queryOrganicUser += 'dat Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date) '
     elif 'interval_days' in request_data:
-        queryOrganicUser += 'dat < cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) '
+        queryOrganicUser += 'cast(dat as Date) > cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) '
     queryOrganicUser += ') as k'
     dfOrganicUser = pd.read_sql(queryOrganicUser, dbConnection)
 
