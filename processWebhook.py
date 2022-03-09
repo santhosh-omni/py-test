@@ -948,33 +948,61 @@ def analyticsActiveReg():
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
-    queryInOrganicUser = 'Select count(*) as count From (Select user_id, min(created_at) dat From t_user_medshot_project ' \
-                         'Where is_archived = false '
-    if 'range_start' in request_data:
-        queryInOrganicUser += 'Group By user_id Having dat Between cast("' + str(
-            request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
-            request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
-    elif 'interval_days' in request_data:
-        queryInOrganicUser += 'Group By user_id Having dat > cast(DATE_ADD(NOW(), INTERVAL -' + str(
-            request_data['interval_days']) + ' Day) as Date) '
-    queryInOrganicUser += ' ) as k'
-    dfInOrganicUser = pd.read_sql(queryInOrganicUser, dbConnection)
+    # queryInOrganicUser = 'Select count(*) as count From (Select user_id, min(created_at) dat From t_user_medshot_project ' \
+    #                      'Where is_archived = false '
+    # if 'range_start' in request_data:
+    #     queryInOrganicUser += 'Group By user_id Having dat Between cast("' + str(
+    #         request_data['range_start']) + '" as Date) And cast(DATE_ADD("' + str(
+    #         request_data['range_end']) + '", INTERVAL 1 Day) as Date) '
+    # elif 'interval_days' in request_data:
+    #     queryInOrganicUser += 'Group By user_id Having dat > cast(DATE_ADD(NOW(), INTERVAL -' + str(
+    #         request_data['interval_days']) + ' Day) as Date) '
+    # queryInOrganicUser += ' ) as k'
+    # dfInOrganicUser = pd.read_sql(queryInOrganicUser, dbConnection)
+    #
+    # queryOrganicUser = 'SELECT Count(*) as count From (SELECT user_id, MIN(created_at) dat ' \
+    #                    'FROM t_user_article_tracker ' \
+    #                    'Where is_archived = false ' \
+    #                    'And user_id not in (Select distinct(user_id) From t_user_medshot_project where is_archived = false) ' \
+    #                                                                       'GROUP BY user_id HAVING '
+    # if 'range_start' in request_data:
+    #     queryOrganicUser += 'dat Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date) '
+    # elif 'interval_days' in request_data:
+    #     queryOrganicUser += 'cast(dat as Date) > cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) '
+    # queryOrganicUser += ') as k'
+    # dfOrganicUser = pd.read_sql(queryOrganicUser, dbConnection)
 
-    queryOrganicUser = 'SELECT Count(*) as count From (SELECT user_id, MIN(created_at) dat ' \
-                       'FROM t_user_article_tracker ' \
-                       'Where is_archived = false ' \
-                       'And user_id not in (Select distinct(user_id) From t_user_medshot_project where is_archived = false) ' \
-                                                                          'GROUP BY user_id HAVING '
+    query = ''
+    query += 'SELECT '
     if 'range_start' in request_data:
-        queryOrganicUser += 'dat Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date) '
+        query += 'COUNT(IF(e.access Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date),1,NULL)) in_organic, '
+        query += 'COUNT(IF(f.access Between cast("'+str(request_data['range_start'])+'" as Date) And cast(DATE_ADD("'+str(request_data['range_end'])+'", INTERVAL 1 Day) as Date),1,NULL)) organic '
     elif 'interval_days' in request_data:
-        queryOrganicUser += 'cast(dat as Date) > cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date) '
-    queryOrganicUser += ') as k'
-    dfOrganicUser = pd.read_sql(queryOrganicUser, dbConnection)
+        query += 'COUNT(IF(cast(e.access as Date) >= cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date),1,NULL)) in_organic, '
+        query += 'COUNT(IF(cast(f.access as Date) >= cast(DATE_ADD(NOW(), INTERVAL -'+str(request_data['interval_days'])+' Day) as Date),1,NULL)) organic '
+            #
+            # 'COUNT(IF(e.access >= DATE_SUB(CURRENT_DATE(),INTERVAL 30 DAY),1,NULL)) in_organic,  ' \
+            # 'COUNT(IF(f.access >= DATE_SUB(CURRENT_DATE(),INTERVAL 30 DAY),1,NULL)) organic ' \
+    query +='FROM ' \
+            't_user a ' \
+            'JOIN t_user_role b ' \
+            'JOIN t_user_speciality_of_interest c ' \
+            'ON a.id = b.user_id ' \
+            'AND c.user_id = a.id ' \
+            'AND b.role_id = 3 ' \
+            'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
+            'LEFT JOIN (SELECT DISTINCT a.user_id, MIN(a.created_at) access FROM	t_user_article_tracker a LEFT JOIN t_user_medshot_project b on a.user_id = b.user_id WHERE b.id IS NOT NULL GROUP BY a.user_id) e ON a.id = e.user_id ' \
+            'LEFT JOIN (SELECT DISTINCT a.user_id, MIN(a.created_at) access FROM	t_user_article_tracker a LEFT JOIN t_user_medshot_project b on a.user_id = b.user_id WHERE b.id IS NULL GROUP BY a.user_id) f ON a.id = f.user_id ' \
+            'WHERE ' \
+            'a.email LIKE "%@%" AND ' \
+            'c.type = "MEDSHOTS"'
+
+    print(query)
+    dfUser = pd.read_sql(text(query), dbConnection)
 
     totalActiveData = {
-        "organic": int(dfOrganicUser["count"]),
-        "in_organic": int(dfInOrganicUser["count"]),
+        "organic": int(dfUser["organic"]),
+        "in_organic": int(dfUser["in_organic"]),
     }
 
     return totalActiveData
@@ -998,7 +1026,6 @@ def analyticsTotal():
                     'And ur.role_id = 3 ' \
                     'And soi.is_archived = false ' \
                     'And u.id in (Select user_id From t_user_medshot_project) '
-    print(text(queryAllUser))
     dfAllUser = pd.read_sql(text(queryAllUser), dbConnection)
 
     ## Total Users
