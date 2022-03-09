@@ -834,7 +834,7 @@ def analytics():
 
     # print(querySpeciality)
 
-    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
     # print(dfSpeciality)
 
     ## Top Speciality
@@ -1069,27 +1069,72 @@ def analyticsTotSpec():
     dbConnection = sqlEngine.connect()
 
     querySpeciality = 'SELECT ' \
-                      'ms.`name` name, ' \
-                      'COUNT(DISTINCT tusi.user_id) count, ' \
-                      'COUNT(DISTINCT tuat.user_id) in_organic ' \
-                      'FROM ' \
-                      'm_speciality ms ' \
-                      'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
-                      'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
+                      'd.`name`, ' \
+                      'COUNT(DISTINCT a.id) count ' \
+                      'FROM t_user a ' \
+                      'JOIN t_user_role b ' \
+                      'JOIN t_user_speciality_of_interest c ' \
+                      'ON a.id = b.user_id  ' \
+                      'AND c.user_id = a.id ' \
+                      'AND b.role_id = 3 ' \
+                      'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
                       'WHERE ' \
-                      'ms.enable_feed = 1 ' \
-                      'GROUP BY ms.id'
+                      'a.email LIKE "%@%" AND ' \
+                      'c.type = "MEDSHOTS" ' \
+                      'GROUP BY d.id'
     # print(querySpeciality)
 
-    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
     dfTop = dfSpeciality.sort_values(['count'],ascending=False)
     specInfoTot = []
-    specInfoO = []
-    specInfoIn = []
     for index, row in dfTop.iterrows():
         specInfoTot.append({"name": row["name"], "count": int(row["count"])})
-        specInfoIn.append({"name": row["name"], "count": int(row["in_organic"])})
-        specInfoO.append({"name": row["name"], "count": int(row["count"]) - int(row["in_organic"])})
+
+    querySpeciality = 'SELECT ' \
+                      'd.`name`, ' \
+                      'COUNT(DISTINCT a.id) count ' \
+                      'FROM t_user a ' \
+                      'JOIN t_user_role b ' \
+                      'JOIN t_user_speciality_of_interest c ' \
+                      'ON a.id = b.user_id  ' \
+                      'AND c.user_id = a.id ' \
+                      'AND b.role_id = 3 ' \
+                      'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
+                      'WHERE ' \
+                      'a.email LIKE "%@%" AND ' \
+                      'c.type = "MEDSHOTS" ' \
+                      'And a.id In (Select user_id From t_user_medshot_project where is_archived = false)' \
+                      'GROUP BY d.id'
+    # print(querySpeciality)
+
+    dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
+    dfTop = dfSpeciality.sort_values(['count'],ascending=False)
+    specInfoIn = []
+    for index, row in dfTop.iterrows():
+        specInfoIn.append({"name": row["name"], "count": int(row["count"])})
+
+    querySpeciality = 'SELECT ' \
+                      'd.`name`, ' \
+                      'COUNT(DISTINCT a.id) count ' \
+                      'FROM t_user a ' \
+                      'JOIN t_user_role b ' \
+                      'JOIN t_user_speciality_of_interest c ' \
+                      'ON a.id = b.user_id  ' \
+                      'AND c.user_id = a.id ' \
+                      'AND b.role_id = 3 ' \
+                      'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
+                      'WHERE ' \
+                      'a.email LIKE "%@%" AND ' \
+                      'c.type = "MEDSHOTS" ' \
+                      'And a.id Not In (Select user_id From t_user_medshot_project where is_archived = false)' \
+                      'GROUP BY d.id'
+    # print(querySpeciality)
+
+    dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
+    dfTop = dfSpeciality.sort_values(['count'],ascending=False)
+    specInfoO = []
+    for index, row in dfTop.iterrows():
+        specInfoO.append({"name": row["name"], "count": int(row["count"])})
     #
     # ######
     # querySpeciality = 'SELECT ' \
@@ -1105,7 +1150,7 @@ def analyticsTotSpec():
     #                   'GROUP BY ms.id'
     # # print(querySpeciality)
     #
-    # dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    # dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
     # dfTop = dfSpeciality.sort_values(['count'], ascending=False)
     # specInfoO = []
     # for index, row in dfTop.iterrows():
@@ -1124,7 +1169,7 @@ def analyticsTotSpec():
     #                   'And tusi.user_id IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
     #                   'GROUP BY ms.id'
     #
-    # dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    # dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
     # dfTop = dfSpeciality.sort_values(['count'], ascending=False)
     # specInfoIn = []
     # for index, row in dfTop.iterrows():
@@ -1239,7 +1284,7 @@ def analyticsV2():
 
     # print(querySpeciality)
 
-    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    dfSpeciality = pd.read_sql(text(querySpeciality), dbConnection)
     # print(dfSpeciality)
 
     ## Top Speciality
