@@ -1055,10 +1055,6 @@ def analyticsTotal():
 def analyticsTotSpec():
     request_data = request.json
     # data = json.loads(request_data)
-    print("**************************************")
-    print(request)
-    print(format(request_data))
-    print("**************************************")
     result = None
     sqlEngine = create_engine(
         'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
@@ -1067,7 +1063,8 @@ def analyticsTotSpec():
 
     querySpeciality = 'SELECT ' \
                       'ms.`name` name, ' \
-                      'COUNT(DISTINCT tusi.user_id) count ' \
+                      'COUNT(DISTINCT tusi.user_id) count, ' \
+                      'COUNT(DISTINCT tuat.user_id) in_organic ' \
                       'FROM ' \
                       'm_speciality ms ' \
                       'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
@@ -1080,47 +1077,53 @@ def analyticsTotSpec():
     dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
     dfTop = dfSpeciality.sort_values(['count'],ascending=False)
     specInfoTot = []
-    for index, row in dfTop.iterrows():
-        specInfoTot.append({"name": row["name"], "count": int(row["count"])})
-
-    ######
-    querySpeciality = 'SELECT ' \
-                      'ms.`name` name, ' \
-                      'COUNT(DISTINCT tusi.user_id) count ' \
-                      'FROM ' \
-                      'm_speciality ms ' \
-                      'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
-                      'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
-                      'WHERE ' \
-                      'ms.enable_feed = 1 ' \
-                      'And tusi.user_id NOT IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
-                      'GROUP BY ms.id'
-    # print(querySpeciality)
-
-    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
-    dfTop = dfSpeciality.sort_values(['count'], ascending=False)
     specInfoO = []
-    for index, row in dfTop.iterrows():
-        specInfoO.append({"name": row["name"], "count": int(row["count"])})
-
-
-    querySpeciality = 'SELECT ' \
-                      'ms.`name` name, ' \
-                      'COUNT(DISTINCT tusi.user_id) count ' \
-                      'FROM ' \
-                      'm_speciality ms ' \
-                      'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
-                      'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
-                      'WHERE ' \
-                      'ms.enable_feed = 1 ' \
-                      'And tusi.user_id IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
-                      'GROUP BY ms.id'
-
-    dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
-    dfTop = dfSpeciality.sort_values(['count'], ascending=False)
     specInfoIn = []
     for index, row in dfTop.iterrows():
-        specInfoIn.append({"name": row["name"], "count": int(row["count"])})
+        specInfoTot.append({"name": row["name"], "count": int(row["count"])})
+        specInfoIn.append({"name": row["name"], "count": int(row["in_organic"])})
+        specInfoO.append({"name": row["name"], "count": int(row["count"]) - int(row["in_organic"])})
+    #
+    # ######
+    # querySpeciality = 'SELECT ' \
+    #                   'ms.`name` name, ' \
+    #                   'COUNT(DISTINCT tusi.user_id) count ' \
+    #                   'FROM ' \
+    #                   'm_speciality ms ' \
+    #                   'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
+    #                   'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
+    #                   'WHERE ' \
+    #                   'ms.enable_feed = 1 ' \
+    #                   'And tusi.user_id NOT IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
+    #                   'GROUP BY ms.id'
+    # # print(querySpeciality)
+    #
+    # dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    # dfTop = dfSpeciality.sort_values(['count'], ascending=False)
+    # specInfoO = []
+    # for index, row in dfTop.iterrows():
+    #     specInfoO.append({"name": row["name"], "count": int(row["count"])})
+    #
+    #
+    # querySpeciality = 'SELECT ' \
+    #                   'ms.`name` name, ' \
+    #                   'COUNT(DISTINCT tusi.user_id) count ' \
+    #                   'FROM ' \
+    #                   'm_speciality ms ' \
+    #                   'LEFT JOIN t_user_speciality_of_interest tusi ON ms.id = tusi.speciality_id ' \
+    #                   'LEFT JOIN t_user_article_tracker tuat ON tusi.user_id = tuat.user_id ' \
+    #                   'WHERE ' \
+    #                   'ms.enable_feed = 1 ' \
+    #                   'And tusi.user_id IN (SELECT user_id FROM `t_user_medshot_project` where is_archived = false) ' \
+    #                   'GROUP BY ms.id'
+    #
+    # dfSpeciality = pd.read_sql(querySpeciality, dbConnection)
+    # dfTop = dfSpeciality.sort_values(['count'], ascending=False)
+    # specInfoIn = []
+    # for index, row in dfTop.iterrows():
+    #     specInfoIn.append({"name": row["name"], "count": int(row["count"])})
+    specInfoO.sort(key=lambda x: x["count"], reverse=True)
+    specInfoIn.sort(key=lambda x: x["count"], reverse=True)
     totalActiveData = {
         "total": specInfoTot,
         "organic": specInfoO,
