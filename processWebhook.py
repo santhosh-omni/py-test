@@ -991,11 +991,15 @@ def analyticsTotal():
     queryAllUser = ''
     queryAllUser += 'Select distinct(u.id), u.current_device From t_user u ' \
                     'Join t_user_speciality_of_interest soi On soi.user_id = u.id ' \
+                    'Join t_user_role ur On ur.user_id = u.id ' \
                     'Where soi.type = "MEDSHOTS" ' \
                     'And soi.is_archived = false ' \
+                    'And u.email Like "%@%" ' \
+                    'And ur.role_id = 3 ' \
+                    'And soi.is_archived = false ' \
                     'And u.id in (Select user_id From t_user_medshot_project) '
-
-    dfAllUser = pd.read_sql(queryAllUser, dbConnection)
+    print(text(queryAllUser))
+    dfAllUser = pd.read_sql(text(queryAllUser), dbConnection)
 
     ## Total Users
     # arr = dfAllUser["user_id"].to_numpy()
@@ -1011,11 +1015,14 @@ def analyticsTotal():
     queryAllUser = ''
     queryAllUser += 'Select distinct(u.id), u.current_device From t_user u ' \
                     'Join t_user_speciality_of_interest soi On soi.user_id = u.id ' \
+                    'Join t_user_role ur On ur.user_id = u.id ' \
                     'Where soi.type = "MEDSHOTS" ' \
                     'And soi.is_archived = false ' \
+                    'And u.email Like "%@%" ' \
+                    'And ur.role_id = 3 ' \
                     'And u.id not in (Select user_id From t_user_medshot_project) '
 
-    dfAllUser = pd.read_sql(queryAllUser, dbConnection)
+    dfAllUser = pd.read_sql(text(queryAllUser), dbConnection)
 
     ## Total Users
     # arr = dfAllUser["user_id"].to_numpy()
