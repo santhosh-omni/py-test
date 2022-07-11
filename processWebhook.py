@@ -994,7 +994,6 @@ def analyticsActiveReg():
             'LEFT JOIN (SELECT DISTINCT a.user_id, MIN(a.created_at) access FROM	t_user_article_tracker a LEFT JOIN t_user_medshot_project b on a.user_id = b.user_id WHERE b.id IS NOT NULL GROUP BY a.user_id) e ON a.id = e.user_id ' \
             'LEFT JOIN (SELECT DISTINCT a.user_id, MIN(a.created_at) access FROM	t_user_article_tracker a LEFT JOIN t_user_medshot_project b on a.user_id = b.user_id WHERE b.id IS NULL GROUP BY a.user_id) f ON a.id = f.user_id ' \
             'WHERE ' \
-            'a.email LIKE "%@%" AND ' \
             'c.type = "MEDSHOTS"'
 
     print(query)
