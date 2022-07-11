@@ -4,7 +4,7 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 # import seaborn as sns
 from flask import Flask, request
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from sqlalchemy import create_engine, text
 import pymysql
 import io
@@ -1022,7 +1022,6 @@ def analyticsTotal():
                     'Join t_user_role ur On ur.user_id = u.id ' \
                     'Where soi.type = "MEDSHOTS" ' \
                     'And soi.is_archived = false ' \
-                    'And u.email Like "%@%" ' \
                     'And ur.role_id = 3 ' \
                     'And soi.is_archived = false ' \
                     'And u.id in (Select user_id From t_user_medshot_project) '
@@ -1045,7 +1044,6 @@ def analyticsTotal():
                     'Join t_user_role ur On ur.user_id = u.id ' \
                     'Where soi.type = "MEDSHOTS" ' \
                     'And soi.is_archived = false ' \
-                    'And u.email Like "%@%" ' \
                     'And ur.role_id = 3 ' \
                     'And u.id not in (Select user_id From t_user_medshot_project) '
 
@@ -1106,7 +1104,6 @@ def analyticsTotSpec():
                       'AND b.role_id = 3 ' \
                       'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
                       'WHERE ' \
-                      'a.email LIKE "%@%" AND ' \
                       'c.type = "MEDSHOTS" ' \
                       'GROUP BY d.id'
     # print(querySpeciality)
@@ -1128,7 +1125,6 @@ def analyticsTotSpec():
                       'AND b.role_id = 3 ' \
                       'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
                       'WHERE ' \
-                      'a.email LIKE "%@%" AND ' \
                       'c.type = "MEDSHOTS" ' \
                       'And a.id In (Select user_id From t_user_medshot_project where is_archived = false)' \
                       'GROUP BY d.id'
@@ -1151,7 +1147,6 @@ def analyticsTotSpec():
                       'AND b.role_id = 3 ' \
                       'LEFT JOIN m_speciality d ON c.speciality_id = d.id ' \
                       'WHERE ' \
-                      'a.email LIKE "%@%" AND ' \
                       'c.type = "MEDSHOTS" ' \
                       'And a.id Not In (Select user_id From t_user_medshot_project where is_archived = false)' \
                       'GROUP BY d.id'
@@ -1214,6 +1209,7 @@ def analyticsTotSpec():
 
 @app.route('/analytics/v2/dashboard', methods=['POST'])
 # @cross_origin()
+# @cross_origin(supports_credentials=False)
 def analyticsV2():
     request_data = request.json
     # data = json.loads(request_data)
