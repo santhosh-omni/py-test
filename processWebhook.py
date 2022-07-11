@@ -330,7 +330,7 @@ def generate_report_v2():
     dfSpecialityId = pd.read_sql(queryForSpecialityIds, dbConnection);
     arrSpeciality = dfSpecialityId["id"].to_numpy()
     df = None
-    print('***************Started User Speciality Of Interest Time Watched******************')
+    print('***************Started User Speciality Of Interest Time Watched*******************')
     for i in arrSpeciality:
         query = ''
         query += 'select * from ' \
