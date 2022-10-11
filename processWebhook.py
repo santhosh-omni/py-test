@@ -17,11 +17,18 @@ CORS(app)
 # user_name = os.envirn.get('backend')
 # password = os.envirn.get('backend1234')
 
+db_url = 'mysql+pymysql://root:1pctlnt99pchw@stg-database.omnicuris.com/omnicuris'
+
+db_url = 'mysql+pymysql://backend:90He$$kIDoF33@preprod-database.omnicuris.com/omnicuris'
+
+db_url = 'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris'
+
+
 @app.route('/generate/report', methods=['POST'])
 def generate_report():
     # Sql Connection
     #Staging
-    sqlEngine = create_engine('mysql+pymysql://root:1pctlnt99pchw@prod-migration.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine(db_url,pool_recycle=36000)
     #Pre-prod
     # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Production
@@ -323,7 +330,7 @@ def generate_report_v2():
     #Pre-prod
     # sqlEngine = create_engine('mysql+pymysql://backend:90He$$kIDoF33@db-preprod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
     #Production
-    sqlEngine = create_engine('mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',pool_recycle=36000)
+    sqlEngine = create_engine(db_url,pool_recycle=36000)
     dbConnection = sqlEngine.connect()
     #Fetch All The Speciality
     queryForSpecialityIds = 'Select s.id From m_speciality s Order By s.id ASC'
@@ -694,6 +701,76 @@ def user_engagement():
             dfTempActivity = pd.concat([dfTempActivity, res])
         result = dfTempActivity
 
+    if 'cmeIds' in request_data:
+        sqlEngine = create_engine(
+            db_url,
+            pool_recycle=36000)
+        dbConnection = sqlEngine.connect()
+        dfCmeIds = None
+        if result is None:
+            result = df
+        string_ints = [str(int) for int in request_data['cmeIds']]
+        print(','.join(string_ints))
+        # Find The User Ids For That CME
+        queryUserCme = "Select user_id as id From t_user_course where course_id in ("+','.join(string_ints)+")"
+        print(queryUserCme)
+        dfCmeUserIds = pd.read_sql(text(queryUserCme), dbConnection);
+        print(dfCmeUserIds)
+        res = result[result['User ID'].isin(dfCmeUserIds['id'])]
+        print(res)
+        dfCmeIds = pd.concat([dfCmeIds, res])
+        result = dfCmeIds
+
+    if 'surveyIds' in request_data:
+        sqlEngine = create_engine(
+            db_url,
+            pool_recycle=36000)
+        dbConnection = sqlEngine.connect()
+        dfSurveyIds = None
+        if result is None:
+            result = df
+        string_ints = [str(int) for int in request_data['surveyIds']]
+        # Find The User Ids For That Survey
+        queryUserSurvey = "Select user_id as id From t_user_survey where survey_id in ("+','.join(string_ints)+")"
+        dfSurveyUserIds = pd.read_sql(text(queryUserSurvey), dbConnection);
+        res = result[result['User ID'].isin(dfSurveyUserIds['id'])]
+        dfSurveyIds = pd.concat([dfSurveyIds, res])
+        result = dfSurveyIds
+
+    if 'medshotIds' in request_data:
+        sqlEngine = create_engine(
+            db_url,
+            pool_recycle=36000)
+        dbConnection = sqlEngine.connect()
+        dfMedshotIds = None
+        if result is None:
+            result = df
+        string_ints = [str(int) for int in request_data['medshotIds']]
+        # Find The User Ids For That Medhsot
+        queryUserMedshot = "Select user_id as id From t_user_medshot_project where medshot_project_id in ("+','.join(string_ints)+")"
+        dfMedshotUserIds = pd.read_sql(text(queryUserMedshot), dbConnection);
+        res = result[result['User ID'].isin(dfMedshotUserIds['id'])]
+        print(res)
+        dfMedshotIds = pd.concat([dfMedshotIds, res])
+        result = dfMedshotIds
+
+    if 'patientProjectIds' in request_data:
+        sqlEngine = create_engine(
+            db_url,
+            pool_recycle=36000)
+        dbConnection = sqlEngine.connect()
+        dfPPIds = None
+        if result is None:
+            result = df
+        string_ints = [str(int) for int in request_data['patientProjectIds']]
+        # Find The User Ids For That Patient
+        queryUserPP = "Select doctor_id as id From t_qr_map where project_id in ("+','.join(string_ints)+")"
+        print(queryUserPP)
+        dfPPUserIds = pd.read_sql(text(queryUserPP), dbConnection);
+        res = result[result['User ID'].isin(dfPPUserIds['id'])]
+        dfPPIds = pd.concat([dfPPIds, res])
+        result = dfPPIds
+
     if 'marketData' in request_data:
         dfTempMarket = None
         if result is None:
@@ -750,7 +827,7 @@ def analytics():
     print("**************************************")
     result = None
     sqlEngine = create_engine(
-        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        db_url,
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
@@ -898,7 +975,7 @@ def analyticsActive():
     print("**************************************")
     result = None
     sqlEngine = create_engine(
-        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        db_url,
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
@@ -944,7 +1021,7 @@ def analyticsActiveReg():
     print("**************************************")
     result = None
     sqlEngine = create_engine(
-        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        db_url,
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
@@ -1011,7 +1088,7 @@ def analyticsActiveReg():
 def analyticsTotal():
     request_data = request.json
     sqlEngine = create_engine(
-        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        db_url,
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
@@ -1088,7 +1165,7 @@ def analyticsTotSpec():
     # data = json.loads(request_data)
     result = None
     sqlEngine = create_engine(
-        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        db_url,
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
@@ -1218,7 +1295,7 @@ def analyticsV2():
     print("**************************************")
     result = None
     sqlEngine = create_engine(
-        'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris',
+        db_url,
         pool_recycle=36000)
     dbConnection = sqlEngine.connect()
 
