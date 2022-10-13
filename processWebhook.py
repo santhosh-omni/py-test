@@ -19,9 +19,9 @@ CORS(app)
 
 db_url = 'mysql+pymysql://root:1pctlnt99pchw@stg-database.omnicuris.com/omnicuris'
 
-db_url = 'mysql+pymysql://backend:90He$$kIDoF33@preprod-database.omnicuris.com/omnicuris'
-
-db_url = 'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris'
+# db_url = 'mysql+pymysql://backend:90He$$kIDoF33@preprod-database.omnicuris.com/omnicuris'
+#
+# db_url = 'mysql+pymysql://prod_view:prod_view_22@core-prod.carufofskwa1.ap-southeast-1.rds.amazonaws.com/omnicuris'
 
 
 @app.route('/generate/report', methods=['POST'])
@@ -350,10 +350,10 @@ def generate_report_v2():
                 'join t_user_speciality_of_interest b ' \
                 'join m_speciality c on a.id = b.user_id ' \
                 'and b.speciality_id = c.id ' \
-                'and a.email not like "%omni%" ' \
-                'and a.email not like "%test%" ' \
-                'and a.email not like "%dummy%" ' \
-                'and a.email like "%@%" ' \
+                'and CAST(AES_DECRYPT(FROM_BASE64(a.email),"0z74P67WdkoeKXCc") AS CHAR(50)) not like "%omni%" ' \
+                'and CAST(AES_DECRYPT(FROM_BASE64(a.email),"0z74P67WdkoeKXCc") AS CHAR(50)) not like "%test%" ' \
+                'and CAST(AES_DECRYPT(FROM_BASE64(a.email),"0z74P67WdkoeKXCc") AS CHAR(50)) not like "%dummy%" ' \
+                'and CAST(AES_DECRYPT(FROM_BASE64(a.email),"0z74P67WdkoeKXCc") AS CHAR(50)) like "%@%" ' \
                 'and b.speciality_id = '+str(i)+' ' \
                 'group by b.user_id, b.speciality_id ' \
                 ') s ' \
@@ -452,8 +452,8 @@ def generate_report_v2():
     queryForUsers = 'Select u.id as "User ID", ' \
                     'Replace(u.first_name,\',\',\' \') as "First Name", ' \
                     'Replace(u.last_name,\',\',\' \') as "Last Name", ' \
-                    'u.email as "Email", ' \
-                    'Replace(u.mobile_number,\',\',\' \') as "Contact No.", ' \
+                    'CAST(AES_DECRYPT(FROM_BASE64(u.email),"0z74P67WdkoeKXCc") AS CHAR(50)) as "Email", ' \
+                    'Replace(CAST(AES_DECRYPT(FROM_BASE64(u.mobile_number),"0z74P67WdkoeKXCc") AS CHAR(50)),\',\',\' \') as "Contact No.", ' \
                     'r.name as "Location/Region", ' \
                     'u.created_at as "Registration Date", ' \
                     'if(u.is_email_verified = 1, "YES", "NO") as "isEmailVerified", ' \
@@ -567,9 +567,9 @@ def generate_report_v2():
                        'join t_user_role c on a.user_id = b.id ' \
                        'and b.id = c.user_id ' \
                        'where c.role_id = 3 ' \
-                       'and b.email like "%@%" ' \
-                       'and b.email not like "%dummy%" ' \
-                       'and b.email not like "%test%"  ' \
+                       'and CAST(AES_DECRYPT(FROM_BASE64(b.email),"0z74P67WdkoeKXCc") AS CHAR(50)) like "%@%" ' \
+                       'and CAST(AES_DECRYPT(FROM_BASE64(b.email),"0z74P67WdkoeKXCc") AS CHAR(50)) not like "%dummy%" ' \
+                       'and CAST(AES_DECRYPT(FROM_BASE64(b.email),"0z74P67WdkoeKXCc") AS CHAR(50)) not like "%test%"  ' \
                        'group by user_id, m2 ' \
                        'order by m2 desc' \
                        ') a ' \
@@ -634,7 +634,7 @@ def generate_report_v2():
     print("####################End Activity Level ######################")
     #TODO: remove
     df["Activity Level"].fillna("MEDIUM", inplace=True)
-    df.to_csv('/home/santhosh-omni/data/data-v91-stg.csv', index=False)
+    df.to_csv('/home/santhosh-omni/data/data-v221-stg.csv', index=False)
     return "Done"
 
 
@@ -713,11 +713,8 @@ def user_engagement():
         print(','.join(string_ints))
         # Find The User Ids For That CME
         queryUserCme = "Select user_id as id From t_user_course where course_id in ("+','.join(string_ints)+")"
-        print(queryUserCme)
         dfCmeUserIds = pd.read_sql(text(queryUserCme), dbConnection);
-        print(dfCmeUserIds)
         res = result[result['User ID'].isin(dfCmeUserIds['id'])]
-        print(res)
         dfCmeIds = pd.concat([dfCmeIds, res])
         result = dfCmeIds
 
