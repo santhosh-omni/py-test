@@ -813,7 +813,7 @@ def user_engagement():
     # return result.to_csv(index=False)
     return result.to_csv(index=False)
 
-@app.route('/analytics/v1/dashboard', methods=['POST'])
+@app.route('/cogent/v1/dashboard', methods=['POST'])
 # @cross_origin()
 def analytics():
     request_data = request.json
@@ -961,7 +961,7 @@ def analytics():
     }
     return x
 
-@app.route('/analytics/v2/dashboard/active', methods=['POST'])
+@app.route('/cogent/v2/dashboard/active', methods=['POST'])
 # @cross_origin()
 def analyticsActive():
     request_data = request.json
@@ -1007,7 +1007,7 @@ def analyticsActive():
 
     return totalActiveData
 
-@app.route('/analytics/v2/dashboard/reg', methods=['POST'])
+@app.route('/cogent/v2/dashboard/reg', methods=['POST'])
 # @cross_origin()
 def analyticsActiveReg():
     request_data = request.json
@@ -1080,7 +1080,7 @@ def analyticsActiveReg():
 
     return totalActiveData
 
-@app.route('/analytics/v2/dashboard/total', methods=['POST'])
+@app.route('/cogent/v2/dashboard/total', methods=['POST'])
 # @cross_origin()
 def analyticsTotal():
     request_data = request.json
@@ -1155,7 +1155,7 @@ def analyticsTotal():
 
     return x
 
-@app.route('/analytics/v2/dashboard/spec', methods=['POST'])
+@app.route('/cogent/v2/dashboard/spec', methods=['POST'])
 # @cross_origin()
 def analyticsTotSpec():
     request_data = request.json
@@ -1280,7 +1280,7 @@ def analyticsTotSpec():
     return totalActiveData
 
 
-@app.route('/analytics/v2/dashboard', methods=['POST'])
+@app.route('/cogent/v2/dashboard', methods=['POST'])
 # @cross_origin()
 # @cross_origin(supports_credentials=False)
 def analyticsV2():
